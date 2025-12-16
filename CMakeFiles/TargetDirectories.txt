@@ -1,0 +1,3 @@
+/home/pathanasiadis/performance/CMakeFiles/navier_stokes_gpu.dir
+/home/pathanasiadis/performance/CMakeFiles/edit_cache.dir
+/home/pathanasiadis/performance/CMakeFiles/rebuild_cache.dir
