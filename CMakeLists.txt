@@ -25,8 +25,6 @@ target_link_libraries(navier_stokes_gpu PRIVATE
 # CXX flags
 target_compile_options(navier_stokes_gpu PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:
-        -O3
-        -g
     >
 )
 
