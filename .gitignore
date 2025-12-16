@@ -1,3 +1,7 @@
 sparselm-1.3/*
 .vscode
 navier
+CmakeFiles/*
+cmake_install.cmake
+CmakeCache.txt
+Makefile
