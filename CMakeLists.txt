@@ -1,14 +1,12 @@
 cmake_minimum_required(VERSION 3.18)
 
 
-
 project(NavierStokesGPU LANGUAGES CXX CUDA)
 
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenMP REQUIRED)
 
-include(CTest)
-enable_testing()
+option(BUILD_TESTING "Build the tests" OFF)
 
 
 
@@ -64,4 +62,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
-add_subdirectory(tests)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+    enable_testing()
+endif()

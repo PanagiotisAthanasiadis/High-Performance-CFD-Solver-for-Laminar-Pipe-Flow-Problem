@@ -5,9 +5,12 @@ include(FetchContent)
 FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG v3.5.2
+  GIT_TAG v3.11.0
 )
 FetchContent_MakeAvailable(Catch2)
+
+include(CTest)
+
 
 # Find all test files
 file(GLOB TEST_FILES "main_test.cpp" "main_test_small.cpp")

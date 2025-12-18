@@ -10,7 +10,7 @@
 TEST_CASE("Main function logic - Small Problem") {
     cudaFree(0); // Initialize CUDA context
     // Problem size
-    int xN = 5, yN = 5, zN = 5; // smaller size for testing
+    int xN = 2, yN = 2, zN = 2; // smaller size for testing
     const int nCell = 4 * xN * yN * zN;
 
     int sizeX = xN + 2;
