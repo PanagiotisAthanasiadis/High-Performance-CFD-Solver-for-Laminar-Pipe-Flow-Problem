@@ -138,37 +138,6 @@ __global__ void boundary_conditions_apply(
 }
 
 
-// ============================================================================
-// KERNEL: GET TRIPLETS (SPARSE JACOBIAN)
-// ============================================================================
-
-__global__ void get_triplets(
-    float* __restrict__ out,
-    float3* __restrict__ triplets,
-    const float* __restrict__ h,
-    const float* __restrict__ fold,
-    const int nCell,
-    const int grain,
-    const int start)
-{
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int g = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if (i >= nCell || g >= grain) return;
-
-    int idx = g * nCell + i;
-    int batch_step = g + start;
-    
-    float df = (out[idx] - fold[i]) / h[batch_step];
-
-    if (fabsf(df) > 1e-8f) {
-        triplets[idx].x = i + 1;  // MATLAB indexing
-        triplets[idx].y = batch_step + 1;
-        triplets[idx].z = df;
-    } else {
-        triplets[idx].x = -2.0f;  // Mark invalid
-    }
-}
 
 // ============================================================================
 // KERNEL: BOUNDARY CONDITIONS INITIALIZATION (SINGLE)

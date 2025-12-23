@@ -12,7 +12,7 @@ option(BUILD_TESTING "Build the tests" OFF)
 
 include_directories(${CMAKE_SOURCE_DIR}/include ${CUDAToolkit_INCLUDE_DIRS})
 
-file(GLOB_RECURSE NAVIER_STOKES_CU_SOURCES "src/*.cu")
+file(GLOB_RECURSE NAVIER_STOKES_CU_SOURCES "src/*.cu" "src/coordinates.cpp" "src/boundary_conditions.cpp" "src/uv_velocity.cpp")
 
 add_library(navier_stokes_lib STATIC ${NAVIER_STOKES_CU_SOURCES})
 

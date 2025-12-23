@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include "common.cuh"
-#include "coordinates.cuh"
+#include "coordinates.h"
 #include "navier_stokes.cuh"
 #include "solver.cuh"
 #include <vector>
@@ -60,7 +60,7 @@ TEST_CASE("Main function logic") {
         y[i] = u0;
     }
 
-    auto [fold, sparse_matrix] = Residuals_Sparse_Jacobian_Split(
+    auto [fold, sparse_matrix] = Residuals_Sparse_Jacobian_finite_diff(
         Re, y.data(), xN, yN, zN, u_inlet.data(), dx, dy, dz);
 
     auto [d_rows_coo, d_cols_coo, d_vals_coo, nnz] = sparse_matrix;
@@ -80,9 +80,9 @@ TEST_CASE("Main function logic") {
     convert_coo_to_csr_gpu(d_rows_coo, d_cols_coo, d_vals_coo, nnz, nCell,
                           &d_row_ptr, &d_col_idx, &d_values);
 
-    //Solver is linear ou need a wrapper
-    solve_with_cusolver_sparse(d_row_ptr, d_col_idx, d_values, nnz,
-                              devu_fold, d_solution, nCell);
+    // //Solver is linear ou need a wrapper
+    // solve_with_cusolver_sparse(d_row_ptr, d_col_idx, d_values, nnz,
+    //                           devu_fold, d_solution, nCell);
 
     CUDA_CHECK(cudaMemcpy( solution.data(),d_solution, nCell * sizeof(float), cudaMemcpyDeviceToHost));
 

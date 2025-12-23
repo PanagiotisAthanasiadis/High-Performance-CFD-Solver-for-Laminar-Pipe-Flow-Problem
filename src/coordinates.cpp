@@ -1,5 +1,5 @@
 #include "common.cuh"
-#include "coordinates.cuh"
+#include "coordinates.h"
 
 std::tuple<float, float, float>
 coordinates(std::vector<float> &xcoor, std::vector<float> &ycoor,

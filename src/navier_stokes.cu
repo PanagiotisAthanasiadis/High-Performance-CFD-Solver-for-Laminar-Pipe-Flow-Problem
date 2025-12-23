@@ -77,7 +77,7 @@ void uv_velocity_single(float *out, const float Re, float *y,
 // ============================================================================
 
 std::pair<std::vector<float>, std::tuple<int*, int*, float*, int>>
-Residuals_Sparse_Jacobian_Split(
+Residuals_Sparse_Jacobian_finite_diff(
     const float Re, float *y,
     const int xN, const int yN, const int zN,
     const float *u_inlet,

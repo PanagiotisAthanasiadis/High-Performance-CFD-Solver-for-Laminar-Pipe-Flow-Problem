@@ -43,7 +43,7 @@ fi
 PROJECT_DIR="."
 BUILD_DIR="${PROJECT_DIR}/build"
 
-CMAKE_ARGS=("-G" "Ninja" "-S" "${PROJECT_DIR}" "-B" "${BUILD_DIR}")
+CMAKE_ARGS=("-G" "Ninja" "-S" "${PROJECT_DIR}" "-B" "${BUILD_DIR}" "-DCMAKE_EXPORT_COMPILE_COMMANDS=1" "-DCMAKE_BUILD_TYPE=Debug")
 
 if [ -n "$CLANG_EXEC" ]; then
     echo "--- Configuring with clang ---"

@@ -32,15 +32,6 @@ __global__ void boundary_conditions_apply(
     const int xN, const int yN, const int zN,
     const int grain);
 
-// KERNEL: GET TRIPLETS (SPARSE JACOBIAN)
-__global__ void get_triplets(
-    float* __restrict__ out,
-    float3* __restrict__ triplets,
-    const float* __restrict__ h,
-    const float* __restrict__ fold,
-    const int nCell,
-    const int grain,
-    const int start);
 
 // KERNEL: BOUNDARY CONDITIONS INITIALIZATION (SINGLE)
 __global__ void boundary_conditions_initialization_single(

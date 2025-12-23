@@ -1,5 +1,5 @@
 #include "common.cuh"
-#include "coordinates.cuh"
+#include "coordinates.h"
 #include "navier_stokes.cuh"
 #include "solver.cuh"
 
@@ -11,7 +11,7 @@ int main()
 {
     // Problem size
     // int xN = 100, yN = 50, zN = 50;
-    int xN = 50, yN = 5, zN = 5;
+    int xN = 20, yN = 20, zN = 20;
     const int nCell = 4 * xN * yN * zN;
 
     int sizeX = xN + 2;
@@ -62,7 +62,7 @@ int main()
         y[i] = u0;
     }
 
-    auto [fold, sparse_matrix] = Residuals_Sparse_Jacobian_Split(
+    auto [fold, sparse_matrix] = Residuals_Sparse_Jacobian_finite_diff(
         Re, y.data(), xN, yN, zN, u_inlet.data(), dx, dy, dz);
     
     auto [d_rows_coo, d_cols_coo, d_vals_coo, nnz] = sparse_matrix;
@@ -84,23 +84,17 @@ int main()
                 << "Val=" << vals[i] << std::endl;
     }
 
-    //Unecessery there was always on the device
-    float *devu_fold,*d_solution;
-    std::vector<float> solution(nCell);
-    CUDA_CHECK(cudaMalloc(&devu_fold, nCell * sizeof(float)));
-    CUDA_CHECK(cudaMemcpy(devu_fold, fold.data(), nCell * sizeof(float), cudaMemcpyHostToDevice));
+    std::vector<float> solution;
+    float *d_solution;
     CUDA_CHECK(cudaMalloc(&d_solution, nCell * sizeof(float)));
-    
-    
     // // Option 2: Convert to CSR 
     int *d_row_ptr, *d_col_idx;
     float *d_values;
     convert_coo_to_csr_gpu(d_rows_coo, d_cols_coo, d_vals_coo, nnz, nCell,
                           &d_row_ptr, &d_col_idx, &d_values);
     
-    //Solver is linear ou need a wrapper
-    solve_with_cusolver_sparse(d_row_ptr, d_col_idx, d_values, nnz,
-                              devu_fold, d_solution, nCell);
+    // solve_with_cusolver_sparse(d_row_ptr, d_col_idx, d_values, nnz,
+    //                           devu_fold, d_solution, nCell);
     
     CUDA_CHECK(cudaMemcpy( solution.data(),d_solution, nCell * sizeof(float), cudaMemcpyDeviceToHost));
     for (auto i : solution) {
@@ -112,7 +106,6 @@ int main()
     cudaFree(d_rows_coo);
     cudaFree(d_cols_coo);
     cudaFree(d_vals_coo);
-    cudaFree(devu_fold);
     cudaFree(d_solution);
 
 

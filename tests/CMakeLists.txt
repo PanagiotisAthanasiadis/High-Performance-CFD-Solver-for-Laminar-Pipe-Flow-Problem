@@ -13,7 +13,7 @@ include(CTest)
 
 
 # Find all test files
-file(GLOB TEST_FILES "main_test.cpp" "main_test_small.cpp")
+file(GLOB TEST_FILES "main_test.cpp" "results_test.cpp" "results_test_5.cpp" "test_uv_velocity_cpu.cpp")
 
 foreach(test_file ${TEST_FILES})
     # Get the test name from the file name
