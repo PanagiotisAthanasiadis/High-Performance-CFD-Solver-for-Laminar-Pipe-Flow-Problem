@@ -7,3 +7,5 @@ CmakeCache.txt
 Makefile
 build/
 .cache
+prototypes/
+.codeviz

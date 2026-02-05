@@ -40,7 +40,6 @@ target_compile_options(navier_stokes_lib PRIVATE
         -use_fast_math
         -O3
         --generate-line-info
-        -arch=sm_61
         --default-stream=per-thread
         --extended-lambda
         -Xcompiler
@@ -49,6 +48,7 @@ target_compile_options(navier_stokes_lib PRIVATE
         "-g"
         -Xcompiler
         "-fopenmp"
+        -arch=sm_89 
     >
 )
 
