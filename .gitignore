@@ -7,5 +7,6 @@ CmakeCache.txt
 Makefile
 build/
 .cache
-
+html/
 .codeviz
+latex/
