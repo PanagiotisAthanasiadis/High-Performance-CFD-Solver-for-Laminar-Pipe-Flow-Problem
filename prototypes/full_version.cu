@@ -1186,7 +1186,39 @@ void print_csc_matrix(
 }
 
 
-//Returns also the transpose jacobian into CSC form.
+/**
+ * @brief Computes the matrix multiplication \f$ C = A^T \cdot A \f$ using cuSPARSE.
+ *
+ * This function performs the following major steps:
+ * 1. Converts the input matrix \f$ A \f$ from Coordinate (COO) to Compressed Sparse Row (CSR) format.
+ * 2. Computes the explicit transpose \f$ A^T \f$ using `cusparseCsr2cscEx2`.
+ * 3. Sets up the SpGEMM (Sparse General Matrix-Matrix Multiplication) descriptor for \f$ A^T \cdot A \f$.
+ * 4. Computes the multiplication and filters the result based on a numeric threshold to remove near-zero values.
+ * 5. Converts the final result \f$ C \f$ back to COO format for output.
+ *
+ * @note This function handles internal memory allocation for the result arrays (`d_result_rows`, `d_result_cols`, `d_result_vals`, etc.).
+ * **The caller is responsible for freeing these pointers using `cudaFree`.**
+ *
+ * @param[in]  d_rows_coo      Device pointer to the array of row indices for matrix \f$ A \f$ (COO format).
+ * @param[in]  d_cols_coo      Device pointer to the array of column indices for matrix \f$ A \f$ (COO format).
+ * @param[in]  d_vals_coo      Device pointer to the array of values for matrix \f$ A \f$ (COO format).
+ * @param[in]  nnz             Number of non-zero elements in matrix \f$ A \f$.
+ * @param[in]  num_rows        Number of rows in matrix \f$ A \f$.
+ * @param[in]  num_cols        Number of columns in matrix \f$ A \f$.
+ *
+ * @param[out] d_result_rows   Pointer to a device pointer that will receive the row indices of the result matrix \f$ C \f$ (COO).
+ * @param[out] d_result_cols   Pointer to a device pointer that will receive the column indices of the result matrix \f$ C \f$ (COO).
+ * @param[out] d_result_vals   Pointer to a device pointer that will receive the values of the result matrix \f$ C \f$ (COO).
+ * @param[out] result_nnz      Pointer to an integer that will receive the number of non-zeros in the result matrix \f$ C \f$.
+ *
+ * @param[out] d_AT_cscOffsets Pointer to a device pointer that will receive the CSC col offsets (or CSR row offsets of \f$ A^T \f$).
+ * @param[out] d_AT_columns    Pointer to a device pointer that will receive the CSC row indices (or CSR col indices of \f$ A^T \f$).
+ * @param[out] d_AT_values     Pointer to a device pointer that will receive the CSC values (or CSR values of \f$ A^T \f$).
+ *
+ * @warning This function performs significant GPU memory allocation for intermediate buffers (SpGEMM work estimation and computation).
+ * Ensure sufficient device memory is available.
+ * @see cusparseSpGEMM_compute
+ */
 void compute_AtA_debug(
     int* d_rows_coo,
     int* d_cols_coo,
@@ -1485,6 +1517,30 @@ __global__ void identity_csr_and_scale_kernel(int N, float alpha,
     }
 }
 
+
+/**
+ * @brief Initializes a square diagonal matrix in CSR format on the GPU.
+ *
+ * This function launches a CUDA kernel to generate a scaled identity matrix 
+ * \f$ I \cdot \alpha \f$ of size \f$ N \times N \f$.
+ *
+ * The resulting CSR structure will have:
+ * - **Row Offsets:** \f$ [0, 1, 2, ..., N] \f$
+ * - **Column Indices:** \f$ [0, 1, 2, ..., N-1] \f$
+ * - **Values:** \f$ [\alpha, \alpha, ..., \alpha] \f$
+ *
+ * @note **Memory Allocation Requirement:**
+ * The caller is responsible for allocating device memory before calling this function:
+ * - `d_row_offsets`: Must be size \f$ (N + 1) \times \text{sizeof(int)} \f$.
+ * - `d_cols`: Must be size \f$ N \times \text{sizeof(int)} \f$.
+ * - `d_vals`: Must be size \f$ N \times \text{sizeof(float)} \f$.
+ *
+ * @param[in]  N             The dimension of the square matrix (number of rows/columns).
+ * @param[in]  alpha         The scalar value to place on the diagonal (scaling factor).
+ * @param[out] d_row_offsets Device pointer to the array that will hold the CSR row offsets.
+ * @param[out] d_cols        Device pointer to the array that will hold the column indices.
+ * @param[out] d_vals        Device pointer to the array that will hold the non-zero values.
+ */
 void create_identity_csr_and_scale(int N, float alpha, 
                                         int* d_row_offsets, int* d_cols, float* d_vals) 
 {
@@ -1544,10 +1600,47 @@ void print_csr_matrix(int rows, int nnz, int* d_row_ptr, int* d_cols, float* d_v
 
 
 /**
- * Adds two CSR matrices (A + B = C) using cuSPARSE.
- * * Performs C = alpha * delta + beta * delta
- * * Note: This function handles the allocation of C's arrays internally.
- * The caller is responsible for freeing d_C_row_offsets, d_C_columns, and d_C_values.
+ * @brief Computes the scaled sum of two CSR matrices: \f$ C = \delta \cdot A + \delta \cdot B \f$.
+ *
+ * This function uses the cuSPARSE `csrgeam` (General Matrix Addition) routine to perform
+ * sparse matrix addition. It handles the complete workflow:
+ * 1. **Buffer Estimation:** Determines workspace size.
+ * 2. **Symbolic Phase:** Computes the non-zero structure (sparsity pattern) of \f$ C \f$ and its row offsets.
+ * 3. **Memory Allocation:** Allocates the column indices and values arrays for \f$ C \f$.
+ * 4. **Numeric Phase:** Computes the actual values of \f$ C \f$.
+ *
+ * @section Format Matrix Format
+ * - **Input A:** CSR (Compressed Sparse Row)
+ * - **Input B:** CSR (Compressed Sparse Row)
+ * - **Output C:** CSR (Compressed Sparse Row)
+ * * All matrices are assumed to be **0-indexed** and **row-major**.
+ *
+ * @note **Memory Responsibility:**
+ * This function allocates device memory for the output matrix arrays:
+ * - `*d_C_row_offsets`
+ * - `*d_C_columns`
+ * - `*d_C_values`
+ *
+ * **The caller is responsible for freeing these pointers using `cudaFree`.**
+ *
+ * @param[in]  delta           The scaling factor applied to both matrices (\f$ \alpha = \delta, \beta = \delta \f$).
+ * @param[in]  m               Number of rows in matrices A, B, and C.
+ * @param[in]  n               Number of columns in matrices A, B, and C.
+ *
+ * @param[in]  nnzA            Number of non-zero elements in matrix A.
+ * @param[in]  d_A_row_offsets Device pointer to row offsets of matrix A (CSR).
+ * @param[in]  d_A_columns     Device pointer to column indices of matrix A (CSR).
+ * @param[in]  d_A_values      Device pointer to values of matrix A (CSR).
+ *
+ * @param[in]  nnzB            Number of non-zero elements in matrix B.
+ * @param[in]  d_B_row_offsets Device pointer to row offsets of matrix B (CSR).
+ * @param[in]  d_B_columns     Device pointer to column indices of matrix B (CSR).
+ * @param[in]  d_B_values      Device pointer to values of matrix B (CSR).
+ *
+ * @param[out] nnzC_out        Pointer to an integer that will receive the total non-zeros in result C.
+ * @param[out] d_C_row_offsets Pointer to a device pointer that will receive C's row offsets (CSR).
+ * @param[out] d_C_columns     Pointer to a device pointer that will receive C's column indices (CSR).
+ * @param[out] d_C_values      Pointer to a device pointer that will receive C's values (CSR).
  */
 void add_csr_cusparse(
     float delta,int m, int n,                          // Matrix dimensions (rows, cols)
@@ -1977,7 +2070,9 @@ int main()
     //             << "Val=" << vals[i] << std::endl;
     // }
 
+    //-------------------------------------------------------
     //J^T * J
+    //-------------------------------------------------------
     // Result pointers
     int *d_hessian_rows, *d_hesian_cols;
     float *d_hessian_vals;
@@ -1995,11 +2090,14 @@ int main()
                         
     // std::cout << "Printing J^T"<<std::endl;                
     // print_csc_matrix(nCell, nCell, d_AT_cscOffsets, d_AT_columns, d_AT_values);
-    // Allocate Device Memory for identity matrix (CSR form)
+
+    //-------------------------------------------------------
     // λ * I
+    //-------------------------------------------------------
     int *d_identity_row_ptr, *d_identity_cols_ptr;
     float *d_identity_vals_ptr;
-
+    
+    // Allocate Device Memory for identity matrix (CSR form)
     CUDA_CHECK(cudaMalloc(&d_identity_row_ptr, (nCell + 1) * sizeof(int)));
     CUDA_CHECK(cudaMalloc(&d_identity_cols_ptr, nCell * sizeof(int)));
     CUDA_CHECK(cudaMalloc(&d_identity_vals_ptr, nCell * sizeof(float)));
@@ -2012,48 +2110,52 @@ int main()
     std::cout << "Scaled identity matrix"<<std::endl;
     print_csr_matrix(nCell, nCell, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
 
-    //Add (J^T * J + λ * I)*delta 
-    // Outputs 
-    int *d_lhs_rows = nullptr;
-    int *d_lhs_cols = nullptr;
-    float *d_lhs_vals = nullptr;
-    int nnzlhs = 0;
+    //-------------------------------------------------------
+    //Add (J^T * J + λ * I)*delta
+    //-------------------------------------------------------
+        // Outputs 
+        int *d_lhs_rows = nullptr;
+        int *d_lhs_cols = nullptr;
+        float *d_lhs_vals = nullptr;
+        int nnzlhs = 0;
 
-    float delta=0.1; //Iteration step
+        float delta=0.1; //Iteration step
 
-    add_csr_cusparse(delta,nCell, nCell, hessian_nnz, d_hessian_rows, d_hesian_cols, 
-        d_hessian_vals, nCell, d_identity_row_ptr,
-        d_identity_cols_ptr, d_identity_vals_ptr, 
-        &nnzlhs, &d_lhs_rows,&d_lhs_cols, &d_lhs_vals);
+        add_csr_cusparse(delta,nCell, nCell, hessian_nnz, d_hessian_rows, d_hesian_cols, 
+            d_hessian_vals, nCell, d_identity_row_ptr,
+            d_identity_cols_ptr, d_identity_vals_ptr, 
+            &nnzlhs, &d_lhs_rows,&d_lhs_cols, &d_lhs_vals);
+        
+        std::cout << "(J^T * J + λ * I)*delta "<<std::endl;
+        print_csr_matrix(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, d_lhs_vals);
+        print_csc_matrix(nCell, nCell, d_lhs_cols, d_lhs_rows, d_lhs_vals);
+    //
+
+    //-------------------------------------------------------
+    //-J^T*r(y)(right hand side )
+    //-------------------------------------------------------
+        std::cout << "\n residual"<<std::endl;
+        print_gpu_array(fold, nCell); 
+        
+
+        float *rhs=nullptr;
+        scale_and_multiply_on_gpu(nCell, nCell, nCell, d_AT_columns, 
+            d_AT_cscOffsets, d_AT_values, fold, -1, &rhs);
+        
+        std::cout << "\n -J^T*r(y)"<<std::endl;
+        print_gpu_array(rhs, nCell);   
     
-    std::cout << "(J^T * J + λ * I)*delta "<<std::endl;
-    print_csr_matrix(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, d_lhs_vals);
-    print_csc_matrix(nCell, nCell, d_lhs_cols, d_lhs_rows, d_lhs_vals);
-
-    
-    //-J^T*r(y)
-    std::cout << "\n residual"<<std::endl;
-    print_gpu_array(fold, nCell); 
-    
-
-
-
-    float *rhs=nullptr;
-    scale_and_multiply_on_gpu(nCell, nCell, nCell, d_AT_columns, 
-        d_AT_cscOffsets, d_AT_values, fold, -1, &rhs);
-    
-    std::cout << "\n -J^T*r(y)"<<std::endl;
-    print_gpu_array(rhs, nCell);   
-
-
+    //------------------------------------------------------
     //Solve the system 
-    float *d_solution=nullptr;
-    printf("DEBUG: Pointer passed to print: %p\n", (void*)d_lhs_cols);
-    solve_system_gpu(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, 
-        d_lhs_vals, rhs,&d_solution );
-    
-    print_gpu_array(d_solution, nCell);
-
+    //------------------------------------------------------
+    //
+        float *d_solution=nullptr;
+        printf("DEBUG: Pointer passed to print: %p\n", (void*)d_lhs_cols);
+        solve_system_gpu(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, 
+            d_lhs_vals, rhs,&d_solution );
+        
+        print_gpu_array(d_solution, nCell);
+    //
 
     // Cleanup
     cudaFree(d_rows_coo);
