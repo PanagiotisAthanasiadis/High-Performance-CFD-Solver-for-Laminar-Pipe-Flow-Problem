@@ -1,0 +1,8 @@
+========= COMPUTE-SANITIZER
+========= Program hit cudaErrorInvalidValue (error 1) due to "invalid argument" on CUDA API call to cudaMemcpy_ptds.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: check_indices_sanity(int, int, int const*) in full_version.cu:1917 [0x16ca5] in full
+=========         Host Frame: solve_system_gpu(long, long, int const*, int const*, float const*, float const*, float**) in full_version.cu:1972 [0x16e14] in full
+=========         Host Frame: main in full_version.cu:2421 [0xceaf] in full
+========= 
+========= ERROR SUMMARY: 1 error

@@ -8,6 +8,9 @@
  * @copyright Copyright (c) 2026
  * 
  */
+#include <cstdio>
+#include <cuda_runtime_api.h>
+#include <driver_types.h>
 #include <iostream>
 #include <vector>
 #include <tuple>
@@ -54,6 +57,101 @@ __device__ __host__ inline int idx_3d_batch(int i, int j, int k, int l,
     return ((i * sizeY + j) * sizeZ + k) * grain + l;
 }
 
+
+void print_csr_matrix(int rows, int nnz, int* d_row_ptr, int* d_cols, float* d_vals) {
+    // Allocate Host Memory
+    int* h_row_ptr = (int*)malloc((rows + 1) * sizeof(int));
+    int* h_cols    = (int*)malloc(nnz * sizeof(int));
+    float* h_vals  = (float*)malloc(nnz * sizeof(float));
+
+    // Copy from Device to Host
+    CUDA_CHECK(cudaMemcpy(h_row_ptr, d_row_ptr, (rows + 1) * sizeof(int), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cols, d_cols, nnz * sizeof(int), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_vals, d_vals, nnz * sizeof(float), cudaMemcpyDeviceToHost));
+
+    printf("\n--- Matrix Print (First 10 Rows) ---\n");
+    printf("Format: Row [Start, End) -> (Col, Val)\n");
+
+    // Loop through rows
+    // (We limit to 10 to avoid flooding screen if matrix is huge)
+    int print_limit = rows;
+
+    for (int i = 0; i < print_limit; i++) {
+        int start = h_row_ptr[i];
+        int end   = h_row_ptr[i+1];
+        
+        printf("Row %d [%d, %d): ", i, start, end);
+        
+        // Loop through elements in this row
+        if (start == end) {
+            printf("(Empty)");
+        } else {
+            for (int j = start; j < end; j++) {
+                printf("(%d, %.6f) ", h_cols[j], h_vals[j]);
+            }
+        }
+        printf("\n");
+    }
+
+    printf("------------------------------------\n");
+
+    // Cleanup Host Memory
+    free(h_row_ptr); free(h_cols); free(h_vals);
+}
+
+/**
+ * @brief Downloads a COO matrix from the GPU and prints it to stdout.
+ *
+ * This function is useful for debugging sparse matrix operations. It copies the 
+ * data from Device to Host and prints the triplets (Row, Col, Value).
+ *
+ * @param[in] rows      Number of rows in the matrix.
+ * @param[in] cols      Number of columns in the matrix.
+ * @param[in] nnz       Number of non-zero elements.
+ * @param[in] d_rows    Device pointer to row indices.
+ * @param[in] d_cols    Device pointer to column indices.
+ * @param[in] d_vals    Device pointer to values.
+ * @param[in] max_print (Optional) Maximum number of elements to print. 
+ * Defaults to 20. Pass -1 to print everything.
+ */
+void print_coo_matrix_gpu(int rows, int cols, int nnz, 
+                          const int* d_rows, 
+                          const int* d_cols, 
+                          const float* d_vals,
+                          int max_print = 20) 
+{
+    // 1. Allocate Host Memory
+    std::vector<int> h_rows(nnz);
+    std::vector<int> h_cols(nnz);
+    std::vector<float> h_vals(nnz);
+
+    // 2. Copy Data from Device to Host
+    cudaMemcpy(h_rows.data(), d_rows, nnz * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_cols.data(), d_cols, nnz * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_vals.data(), d_vals, nnz * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // 3. Print Header
+    std::cout << "--- COO Matrix (GPU) ---" << std::endl;
+    std::cout << "Dimensions: " << rows << " x " << cols << std::endl;
+    std::cout << "Non-zeros:  " << nnz << std::endl;
+    std::cout << "------------------------" << std::endl;
+
+    // 4. Determine print limit
+    int limit = (max_print == -1) ? nnz : std::min(nnz, max_print);
+
+    // 5. Print Elements
+    for (int i = 0; i < limit; ++i) {
+        std::cout << "Idx " << i << ": (" 
+                  << h_rows[i] << ", " 
+                  << h_cols[i] << ") = " 
+                  << h_vals[i] << std::endl;
+    }
+
+    if (limit < nnz) {
+        std::cout << "... (" << (nnz - limit) << " more elements omitted) ..." << std::endl;
+    }
+    std::cout << "------------------------" << std::endl;
+}
 
 // ============================================================================
 // KERNEL: BUILD SOLUTION BATCH
@@ -389,12 +487,11 @@ __global__ void build_jacobian_entries(
     float df = (out[idx] - fold[i]) / h[batch_step];
     
     if (fabsf(df) > 1e-8f) {
-        int pos = atomicAdd(counter, 1);
-        // row_idx[pos] = i;              // Row index  //Column major
-        // col_idx[pos] = batch_step;      // Column index
-        row_idx[pos] = batch_step; // Row index //Row major
-        col_idx[pos] = i;      // Column index
-        values[pos] = df;               // Value
+        int pos = atomicAdd(counter, 1);    
+        // printf("%d %d %f %d\n ",i,batch_step,df);
+        row_idx[pos] = i;              // Row index
+        col_idx[pos] = batch_step;      // Column index
+        values[pos] = df;               // Value   
     }
 }
 
@@ -686,8 +783,8 @@ void uv_velocity_single(float *out, const float Re, float *y,
  * for freeing these resources using `cudaFree`.
  * @warning This function performs significant device memory allocation. Ensure sufficient GPU memory is available.
  */
-std::pair<float *, std::tuple<int*, int*, float*, int>>
- Residuals_Sparse_Jacobian_finite_diff(
+std::pair<float*, std::tuple<int*, int*, float*, int>>
+Residuals_Sparse_Jacobian_finite_diff(
     const float Re, float *y,
     const int xN, const int yN, const int zN,
     const float *u_inlet,
@@ -711,12 +808,12 @@ std::pair<float *, std::tuple<int*, int*, float*, int>>
         y[j] = temp;
     }
 
-    float *d_fold, *hd, *d_ysol, *d_u_inlet;
-    //std::vector<float> fold(nCell);
-    CUDA_CHECK(cudaMalloc(&d_fold, align_size(nCell * sizeof(float))));
-    uv_velocity_single(d_fold, Re, y, xN, yN, zN, u_inlet, dx, dy, dz);
+    std::vector<float> fold(nCell);
+    uv_velocity_single(fold.data(), Re, y, xN, yN, zN, u_inlet, dx, dy, dz);
 
-    // CUDA_CHECK(cudaMemcpy(dev_fold, fold.data(), nCell * sizeof(float), cudaMemcpyHostToDevice));
+    float *dev_fold, *hd, *d_ysol, *d_u_inlet;
+    CUDA_CHECK(cudaMalloc(&dev_fold, align_size(nCell * sizeof(float))));
+    CUDA_CHECK(cudaMemcpy(dev_fold, fold.data(), nCell * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMalloc(&hd, align_size(nCell * sizeof(float))));
     CUDA_CHECK(cudaMemcpy(hd, h.data(), nCell * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMalloc(&d_ysol, align_size(nCell * sizeof(float))));
@@ -726,7 +823,7 @@ std::pair<float *, std::tuple<int*, int*, float*, int>>
     CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(float))));
     CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(float), cudaMemcpyHostToDevice));
 
-    size_t max_nnz = (size_t)nCell * 20;
+    size_t max_nnz = (size_t)nCell * 30;
     int *d_all_rows, *d_all_cols;
     float *d_all_vals;
     int *d_global_counter;
@@ -822,16 +919,23 @@ std::pair<float *, std::tuple<int*, int*, float*, int>>
             dim3 tg((nCell + tt.x - 1) / tt.x,
                    (current_grain + tt.y - 1) / tt.y);
             build_jacobian_entries<<<tg, tt, 0, stream>>>(
-                dev_out, d_fold, hd,
+                dev_out, dev_fold, hd,
                 d_all_rows, d_all_cols, d_all_vals,
                 d_global_counter,
                 nCell, current_grain, start);
+            
+            int total_attempted_nnz;
+            cudaMemcpy(&total_attempted_nnz, d_global_counter, sizeof(int), cudaMemcpyDeviceToHost);
+            if (total_attempted_nnz > max_nnz) {
+                printf("Error: Jacobian buffer overflow! Needed %d, had %zu\n", total_attempted_nnz, max_nnz);
+            }
 
+            
             if (chunk % 1000 == 0) {
                 std::cout << "Thread " << tid << ": " << chunk << "/" << chunk_end << std::endl;
             }
         }
-
+    
         CUDA_CHECK(cudaStreamSynchronize(stream));
         CUDA_CHECK(cudaFree(dev_out));
         CUDA_CHECK(cudaFree(ud));
@@ -847,14 +951,16 @@ std::pair<float *, std::tuple<int*, int*, float*, int>>
     CUDA_CHECK(cudaMemcpy(&nnz, d_global_counter, sizeof(int), cudaMemcpyDeviceToHost));
     std::cout << "Jacobian: " << nnz << " non-zeros" << std::endl;
 
+    
     // CUDA_CHECK(cudaFree(dev_fold));
     CUDA_CHECK(cudaFree(hd));
     CUDA_CHECK(cudaFree(d_ysol));
     CUDA_CHECK(cudaFree(d_u_inlet));
     CUDA_CHECK(cudaFree(d_global_counter));
 
-    return {d_fold, std::make_tuple(d_all_rows, d_all_cols, d_all_vals, nnz)};
+    return {dev_fold, std::make_tuple(d_all_rows, d_all_cols, d_all_vals, nnz)};
 }
+
 
 std::tuple<float, float, float>
 coordinates(std::vector<float> &xcoor, std::vector<float> &ycoor,
@@ -882,87 +988,87 @@ coordinates(std::vector<float> &xcoor, std::vector<float> &ycoor,
     return std::make_tuple(dx, dy, dz);
 }
 
-// Helper kernel to initialize indices: [0, 1, 2, ...]
-__global__ void init_indices(int* ptr, int nnz) {
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < nnz) ptr[idx] = idx;
-}
+// // Helper kernel to initialize indices: [0, 1, 2, ...]
+// __global__ void init_indices(int* ptr, int nnz) {
+//     int idx = threadIdx.x + blockIdx.x * blockDim.x;
+//     if (idx < nnz) ptr[idx] = idx;
+// }
 
 // Helper kernel to permute data based on sorted indices
 // out[i] = in[ sorted_indices[i] ]
-__global__ void permute_data(const int* in_cols, int* out_cols, 
-                             const float* in_vals, float* out_vals, 
-                             const int* sorted_indices, int nnz) {
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i < nnz) {
-        int old_pos = sorted_indices[i];
-        out_cols[i] = in_cols[old_pos];
-        out_vals[i] = in_vals[old_pos];
-    }
-}
+// __global__ void permute_data(const int* in_cols, int* out_cols, 
+//                              const float* in_vals, float* out_vals, 
+//                              const int* sorted_indices, int nnz) {
+//     int i = threadIdx.x + blockIdx.x * blockDim.x;
+//     if (i < nnz) {
+//         int old_pos = sorted_indices[i];
+//         out_cols[i] = in_cols[old_pos];
+//         out_vals[i] = in_vals[old_pos];
+//     }
+// }
 
 
-void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
+// void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
     
-    // Pointers for sorted/temp arrays
-    int *d_indices, *d_indices_sorted;
-    int *d_rows_sorted, *d_cols_sorted; 
-    float *d_vals_sorted;
+//     // Pointers for sorted/temp arrays
+//     int *d_indices, *d_indices_sorted;
+//     int *d_rows_sorted, *d_cols_sorted; 
+//     float *d_vals_sorted;
     
-    // 1. Allocate Temporary Buffers
-    //    We need an index array to track where the rows move, so we can move cols/vals later.
-    CUDA_CHECK(cudaMalloc((void**)&d_indices, nnz * sizeof(int)));
-    CUDA_CHECK(cudaMalloc((void**)&d_indices_sorted, nnz * sizeof(int)));
-    CUDA_CHECK(cudaMalloc((void**)&d_rows_sorted, nnz * sizeof(int)));
+//     // 1. Allocate Temporary Buffers
+//     //    We need an index array to track where the rows move, so we can move cols/vals later.
+//     CUDA_CHECK(cudaMalloc((void**)&d_indices, nnz * sizeof(int)));
+//     CUDA_CHECK(cudaMalloc((void**)&d_indices_sorted, nnz * sizeof(int)));
+//     CUDA_CHECK(cudaMalloc((void**)&d_rows_sorted, nnz * sizeof(int)));
     
-    //    Allocation of output buffers for cols/vals
-    CUDA_CHECK(cudaMalloc((void**)&d_cols_sorted, nnz * sizeof(int))); 
-    CUDA_CHECK(cudaMalloc((void**)&d_vals_sorted, nnz * sizeof(float)));
+//     //    Allocation of output buffers for cols/vals
+//     CUDA_CHECK(cudaMalloc((void**)&d_cols_sorted, nnz * sizeof(int))); 
+//     CUDA_CHECK(cudaMalloc((void**)&d_vals_sorted, nnz * sizeof(float)));
 
-    // 2. Initialize Permutation Index [0, 1, 2, ..., NNZ-1]
-    int blockSize = 256;
-    int numBlocks = (nnz + blockSize - 1) / blockSize;
+//     // 2. Initialize Permutation Index [0, 1, 2, ..., NNZ-1]
+//     int blockSize = 256;
+//     int numBlocks = (nnz + blockSize - 1) / blockSize;
     
-    init_indices<<<numBlocks, blockSize>>>(d_indices, nnz);
+//     init_indices<<<numBlocks, blockSize>>>(d_indices, nnz);
 
-    // 3. Determine Temporary Storage Size for CUB Radix Sort
-    void *d_temp_storage = NULL;
-    size_t temp_storage_bytes = 0;
+//     // 3. Determine Temporary Storage Size for CUB Radix Sort
+//     void *d_temp_storage = NULL;
+//     size_t temp_storage_bytes = 0;
 
-    //    Query workspace requirement
-    //    Key: d_rows, Value: d_indices
-    CUDA_CHECK(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
-        d_rows, d_rows_sorted, d_indices, d_indices_sorted, nnz));
+//     //    Query workspace requirement
+//     //    Key: d_rows, Value: d_indices
+//     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
+//         d_rows, d_rows_sorted, d_indices, d_indices_sorted, nnz));
     
-    //    Allocate workspace
-    CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+//     //    Allocate workspace
+//     CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
 
-    // 4. Run the Sort
-    //    Sorts 'rows' into 'rows_sorted', and moves 'indices' into 'indices_sorted'
-    CUDA_CHECK(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
-        d_rows, d_rows_sorted, d_indices, d_indices_sorted, nnz));
+//     // 4. Run the Sort
+//     //    Sorts 'rows' into 'rows_sorted', and moves 'indices' into 'indices_sorted'
+//     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
+//         d_rows, d_rows_sorted, d_indices, d_indices_sorted, nnz));
 
-    // 5. Permute Cols and Vals using the new index order
-    //    We effectively "apply" the sort permutation to the other two arrays.
-    permute_data<<<numBlocks, blockSize>>>(d_cols, d_cols_sorted, 
-                                           d_vals, d_vals_sorted, 
-                                           d_indices_sorted, nnz);
+//     // 5. Permute Cols and Vals using the new index order
+//     //    We effectively "apply" the sort permutation to the other two arrays.
+//     permute_data<<<numBlocks, blockSize>>>(d_cols, d_cols_sorted, 
+//                                            d_vals, d_vals_sorted, 
+//                                            d_indices_sorted, nnz);
 
-    // 6. Copy sorted data back to original pointers
-    //    (Since the function arguments are pointers-by-value, we must copy the data back 
-    //     to the original locations unless you change the function signature to accept int**).
-    CUDA_CHECK(cudaMemcpy(d_rows, d_rows_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
-    CUDA_CHECK(cudaMemcpy(d_cols, d_cols_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
-    CUDA_CHECK(cudaMemcpy(d_vals, d_vals_sorted, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
+//     // 6. Copy sorted data back to original pointers
+//     //    (Since the function arguments are pointers-by-value, we must copy the data back 
+//     //     to the original locations unless you change the function signature to accept int**).
+//     CUDA_CHECK(cudaMemcpy(d_rows, d_rows_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
+//     CUDA_CHECK(cudaMemcpy(d_cols, d_cols_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
+//     CUDA_CHECK(cudaMemcpy(d_vals, d_vals_sorted, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
 
-    // Cleanup
-    CUDA_CHECK(cudaFree(d_indices)); 
-    CUDA_CHECK(cudaFree(d_indices_sorted)); 
-    CUDA_CHECK(cudaFree(d_rows_sorted)); 
-    CUDA_CHECK(cudaFree(d_cols_sorted)); 
-    CUDA_CHECK(cudaFree(d_vals_sorted)); 
-    CUDA_CHECK(cudaFree(d_temp_storage));
-}
+//     // Cleanup
+//     CUDA_CHECK(cudaFree(d_indices)); 
+//     CUDA_CHECK(cudaFree(d_indices_sorted)); 
+//     CUDA_CHECK(cudaFree(d_rows_sorted)); 
+//     CUDA_CHECK(cudaFree(d_cols_sorted)); 
+//     CUDA_CHECK(cudaFree(d_vals_sorted)); 
+//     CUDA_CHECK(cudaFree(d_temp_storage));
+// }
 
 
 
@@ -1117,7 +1223,7 @@ void filter_csr_cub(float threshold,int rows, int old_nnz,
         cusparseStatus_t err = call; \
         if (err != CUSPARSE_STATUS_SUCCESS) { \
             std::cerr << "cuSPARSE error at " << __FILE__ << ":" << __LINE__ \
-                      << " - code " << err << std::endl; \
+                      << " - code " << cusparseGetErrorName(err) << std::endl; \
             exit(1); \
         } \
     } while(0)
@@ -1194,7 +1300,7 @@ void print_csc_matrix(
  * 2. Computes the explicit transpose \f$ A^T \f$ using `cusparseCsr2cscEx2`.
  * 3. Sets up the SpGEMM (Sparse General Matrix-Matrix Multiplication) descriptor for \f$ A^T \cdot A \f$.
  * 4. Computes the multiplication and filters the result based on a numeric threshold to remove near-zero values.
- * 5. Converts the final result \f$ C \f$ back to COO format for output.
+ * 5. Converts the final result \f$ C \f$ back to CSR format for output.
  *
  * @note This function handles internal memory allocation for the result arrays (`d_result_rows`, `d_result_cols`, `d_result_vals`, etc.).
  * **The caller is responsible for freeing these pointers using `cudaFree`.**
@@ -1206,9 +1312,9 @@ void print_csc_matrix(
  * @param[in]  num_rows        Number of rows in matrix \f$ A \f$.
  * @param[in]  num_cols        Number of columns in matrix \f$ A \f$.
  *
- * @param[out] d_result_rows   Pointer to a device pointer that will receive the row indices of the result matrix \f$ C \f$ (COO).
- * @param[out] d_result_cols   Pointer to a device pointer that will receive the column indices of the result matrix \f$ C \f$ (COO).
- * @param[out] d_result_vals   Pointer to a device pointer that will receive the values of the result matrix \f$ C \f$ (COO).
+ * @param[out] d_result_rows   Pointer to a device pointer that will receive the row indices of the result matrix \f$ C \f$ (CSR).
+ * @param[out] d_result_cols   Pointer to a device pointer that will receive the column indices of the result matrix \f$ C \f$ (CSR).
+ * @param[out] d_result_vals   Pointer to a device pointer that will receive the values of the result matrix \f$ C \f$ (CSR).
  * @param[out] result_nnz      Pointer to an integer that will receive the number of non-zeros in the result matrix \f$ C \f$.
  *
  * @param[out] d_AT_cscOffsets Pointer to a device pointer that will receive the CSC col offsets (or CSR row offsets of \f$ A^T \f$).
@@ -1241,11 +1347,19 @@ void compute_AtA_debug(
     CUSPARSE_CHECK(cusparseCreate(&handle));
     
     // Convert COO to CSR for A
-    int *d_csrRowPtrA;
+    int *d_csrRowPtrA, *d_csrColIndA;
+    float *d_csrValA;
+
     CUDA_CHECK(cudaMalloc(&d_csrRowPtrA, (num_rows + 1) * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&d_csrColIndA, nnz * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&d_csrValA, nnz * sizeof(float)));
 
     CUSPARSE_CHECK(cusparseXcoo2csr(handle, d_rows_coo, nnz, num_rows, d_csrRowPtrA, CUSPARSE_INDEX_BASE_ZERO));
     
+    //Copy the values 
+    CUDA_CHECK(cudaMemcpy(d_csrColIndA, d_cols_coo, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(d_csrValA, d_vals_coo, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
+
     std::cout << "Converted A to CSR" << std::endl;
 
     //-------------------------------------------------------------------------
@@ -1257,7 +1371,7 @@ void compute_AtA_debug(
     // Allocate memory for A^T (Same NNZ, but dimensions swapped if non-square)
 
     // Note: A^T has n rows and m cols
-    CUDA_CHECK(cudaMalloc((void**)d_AT_cscOffsets, (num_rows + 1) * sizeof(int))); 
+    CUDA_CHECK(cudaMalloc((void**)d_AT_cscOffsets, (num_cols + 1) * sizeof(int))); 
 
     CUDA_CHECK(cudaMalloc((void**)d_AT_columns, nnz * sizeof(int)));
 
@@ -1269,7 +1383,7 @@ void compute_AtA_debug(
     // Query buffer size for CSR -> CSC (which is effectively A -> A^T)
     CUSPARSE_CHECK(cusparseCsr2cscEx2_bufferSize(
         handle, num_rows, num_cols, nnz,
-        d_vals_coo, d_csrRowPtrA, d_cols_coo,
+        d_csrValA, d_csrRowPtrA, d_csrColIndA,
         *d_AT_values, *d_AT_cscOffsets, *d_AT_columns, // Output arrays
         CUDA_R_32F, CUSPARSE_ACTION_NUMERIC,
         CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, 
@@ -1281,7 +1395,7 @@ void compute_AtA_debug(
     // Perform the transpose
     CUSPARSE_CHECK(cusparseCsr2cscEx2(
         handle, num_rows, num_cols, nnz,
-        d_vals_coo, d_csrRowPtrA, d_cols_coo,
+        d_csrValA, d_csrRowPtrA, d_csrColIndA,
         *d_AT_values, *d_AT_cscOffsets, *d_AT_columns,
         CUDA_R_32F, CUSPARSE_ACTION_NUMERIC,
         CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, 
@@ -1301,7 +1415,7 @@ void compute_AtA_debug(
                       CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
                       CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
     
-    CUSPARSE_CHECK(cusparseCreateCsr(&matAt, num_rows, num_cols, nnz,
+    CUSPARSE_CHECK(cusparseCreateCsr(&matAt, num_cols, num_rows, nnz,
                                      *d_AT_cscOffsets, *d_AT_columns, *d_AT_values,
                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
@@ -1379,29 +1493,6 @@ void compute_AtA_debug(
     int64_t C_num_rows, C_num_cols, C_nnz; //They need int64_t
     CUSPARSE_CHECK(cusparseSpMatGetSize(matC, &C_num_rows, &C_num_cols, &C_nnz));
     
-    std::cout << "Result matrix C: " << C_num_rows << "x" << C_num_cols 
-              << " with " << C_nnz << " non-zeros" << std::endl;
-    
-    if (C_nnz == 0) {
-        std::cout << "WARNING: Result has 0 non-zeros!" << std::endl;
-        *result_nnz = 0;
-        *d_result_rows = nullptr;
-        *d_result_cols = nullptr;
-        *d_result_vals = nullptr;
-        
-        // Cleanup
-        if (dBuffer1) cudaFree(dBuffer1);
-        if (dBuffer2) cudaFree(dBuffer2);
-        cudaFree(d_csrRowPtrA);
-        cudaFree(d_cols_coo);
-        
-        cusparseSpGEMM_destroyDescr(spgemmDesc);
-        cusparseDestroySpMat(matA);
-        cusparseDestroySpMat(matC);
-        cusparseDestroy(handle);
-        
-        return;
-    }
     
     // Allocate result CSR
     int *d_csrRowPtrC, *d_csrColIndC;
@@ -1426,43 +1517,48 @@ void compute_AtA_debug(
     int trim_nnz = 0;
     
     //Filter threshold
-    float threshold = 1e-4f;
+    float threshold = 1e-7f;
+
     
     //Trim for zeroes
     filter_csr_cub(threshold,C_num_rows, C_nnz, d_csrRowPtrC, d_csrColIndC, d_csrValC, &d_trim_row_ptr, &d_trim_cols_ptr, &d_trim_vals_ptr,&trim_nnz);
-    
+
+
+    // print_csr_matrix(num_cols, trim_nnz, d_trim_row_ptr, d_trim_cols_ptr, d_trim_vals_ptr);
+
+    *d_result_rows= d_trim_row_ptr;
     *d_result_cols = d_trim_cols_ptr; 
     *d_result_vals = d_trim_vals_ptr;
-    
-    // Convert result to COO
-    CUDA_CHECK(cudaMalloc(d_result_rows, trim_nnz * sizeof(int)));
-    
-    CUSPARSE_CHECK(cusparseXcsr2coo(handle, d_trim_row_ptr, trim_nnz, C_num_rows,
-                     *d_result_rows, CUSPARSE_INDEX_BASE_ZERO));
-    
     *result_nnz = trim_nnz;
     
-    //Print first few results
-    int* h_result_rows = new int[(int)trim_nnz];
-    int* h_result_cols = new int[(int)trim_nnz];
-    float* h_result_vals = new float[(int)trim_nnz];;
+    // Convert result to COO
+    // CUDA_CHECK(cudaMalloc(d_result_rows, trim_nnz * sizeof(int)));
     
-    CUDA_CHECK(cudaMemcpy(h_result_rows, *d_result_rows, trim_nnz * sizeof(int), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_result_cols, *d_result_cols, trim_nnz * sizeof(int), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_result_vals, *d_result_vals,trim_nnz * sizeof(float), cudaMemcpyDeviceToHost));
+    // CUSPARSE_CHECK(cusparseXcsr2coo(handle, d_trim_row_ptr, trim_nnz, C_num_rows,
+                    //  *d_result_rows, CUSPARSE_INDEX_BASE_ZERO));
     
-    std::cout << "Results:" << std::endl;
-    for (int i = 0; i < (int)trim_nnz; i++) {
-        std::cout << "  (" << h_result_rows[i] << ", " << h_result_cols[i] << ") = " << h_result_vals[i] << std::endl;
-    }
+    
+    // //Print first few results
+    // int* h_result_rows = new int[(int)trim_nnz];
+    // int* h_result_cols = new int[(int)trim_nnz];
+    // float* h_result_vals = new float[(int)trim_nnz];;
+    
+    // CUDA_CHECK(cudaMemcpy(h_result_rows, *d_result_rows, trim_nnz * sizeof(int), cudaMemcpyDeviceToHost));
+    // CUDA_CHECK(cudaMemcpy(h_result_cols, *d_result_cols, trim_nnz * sizeof(int), cudaMemcpyDeviceToHost));
+    // CUDA_CHECK(cudaMemcpy(h_result_vals, *d_result_vals,trim_nnz * sizeof(float), cudaMemcpyDeviceToHost));
+    
+    // std::cout << "Results:" << std::endl;
+    // for (int i = 0; i < (int)trim_nnz; i++) {
+    //     std::cout << "  (" << h_result_rows[i] << ", " << h_result_cols[i] << ") = " << h_result_vals[i] << std::endl;
+    // }
 
     // -------------------------------------------------------------------------
     // 7. CLEANUP 
     // -------------------------------------------------------------------------
     
-    delete[] h_result_rows;
-    delete[] h_result_cols;
-    delete[] h_result_vals;
+    // delete[] h_result_rows;
+    // delete[] h_result_cols;
+    // delete[] h_result_vals;
     
     // 1. Free SpGEMM Buffers
     if (dBuffer1) cudaFree(dBuffer1);
@@ -1480,7 +1576,7 @@ void compute_AtA_debug(
     if (d_transposeBuffer) cudaFree(d_transposeBuffer);
 
     // 5. Free Filtered/Trimmed Intermediate Arrays
-    cudaFree(d_trim_row_ptr);
+    // cudaFree(d_trim_row_ptr);
 
 
     
@@ -1545,58 +1641,12 @@ void create_identity_csr_and_scale(int N, float alpha,
                                         int* d_row_offsets, int* d_cols, float* d_vals) 
 {
     int blockSize = 256;
-    int gridSize = (N + blockSize - 1) / blockSize;
-    
+    int gridSize = ( (N + 1) + blockSize - 1) / blockSize;
     // We launch N+1 threads to handle the extra row pointer element safely
     identity_csr_and_scale_kernel<<<gridSize, blockSize>>>(N, alpha, d_row_offsets, d_cols, d_vals);
 }
 
-/**
- * Adds two CSR matrices (A + B = C) using cuSPARSE.
- * * Performs C = alpha * delta + beta * delta
- * * Note: This function handles the allocation of C's arrays internally.
- * The caller is responsible for freeing d_C_row_offsets, d_C_columns, and d_C_values.
- */
-void print_csr_matrix(int rows, int nnz, int* d_row_ptr, int* d_cols, float* d_vals) {
-    // Allocate Host Memory
-    int* h_row_ptr = (int*)malloc((rows + 1) * sizeof(int));
-    int* h_cols    = (int*)malloc(nnz * sizeof(int));
-    float* h_vals  = (float*)malloc(nnz * sizeof(float));
 
-    // Copy from Device to Host
-    CUDA_CHECK(cudaMemcpy(h_row_ptr, d_row_ptr, (rows + 1) * sizeof(int), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_cols, d_cols, nnz * sizeof(int), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_vals, d_vals, nnz * sizeof(float), cudaMemcpyDeviceToHost));
-
-    printf("\n--- Matrix Print (First 10 Rows) ---\n");
-    printf("Format: Row [Start, End) -> (Col, Val)\n");
-
-    // Loop through rows
-    // (We limit to 10 to avoid flooding screen if matrix is huge)
-    int print_limit = rows;
-
-    for (int i = 0; i < print_limit; i++) {
-        int start = h_row_ptr[i];
-        int end   = h_row_ptr[i+1];
-        
-        printf("Row %d [%d, %d): ", i, start, end);
-        
-        // Loop through elements in this row
-        if (start == end) {
-            printf("(Empty)");
-        } else {
-            for (int j = start; j < end; j++) {
-                printf("(%d, %.6f) ", h_cols[j], h_vals[j]);
-            }
-        }
-        printf("\n");
-    }
-
-    printf("------------------------------------\n");
-
-    // Cleanup Host Memory
-    free(h_row_ptr); free(h_cols); free(h_vals);
-}
 
 
 /**
@@ -1690,6 +1740,13 @@ void add_csr_cusparse(
 
     CUDA_CHECK(cudaMalloc(&d_buffer, bufferSize));
 
+
+//     int test_offset_A, test_offset_B;
+// cudaMemcpy(&test_offset_A, &d_A_row_offsets[m], sizeof(int), cudaMemcpyDeviceToHost);
+// cudaMemcpy(&test_offset_B, &d_B_row_offsets[m], sizeof(int), cudaMemcpyDeviceToHost);
+// printf("A Last Offset: %d (Expected %d), B Last Offset: %d (Expected %d)\n", 
+//         test_offset_A, nnzA, test_offset_B, nnzB);
+
     // 4. Symbolic Phase: Calculate nnzC and C_row_offsets
     // This fills d_C_row_offsets and determines the total number of non-zeros.
     int nnzC = 0;
@@ -1700,8 +1757,7 @@ void add_csr_cusparse(
         descrC, *d_C_row_offsets, &nnzC,d_buffer
     ));
 
-    // Check for calculation errors (indicated by nnzC = -1 usually implies error in old API, 
-    // but here we trust the Status return)
+    
     *nnzC_out = nnzC;
 
     // 5. Allocate C Columns and Values
@@ -1727,7 +1783,36 @@ void add_csr_cusparse(
     CUSPARSE_CHECK(cusparseDestroy(handle));
 }
 
-
+/**
+ * @brief Computes a scaled sparse matrix-vector multiplication: \f$ y = \alpha \cdot A \cdot x \f$.
+ *
+ * This function performs the operation on the GPU using cuSPARSE. It handles the allocation
+ * of the result vector \f$ y \f$ internally.
+ *
+ * @section Format Matrix Format
+ * - **Input Matrix A:** **CSC (Compressed Sparse Column)**
+ * - **Memory Layout:** **Column-Major** (Values are grouped by column).
+ * * @note **Memory Responsibility:**
+ * - This function **allocates** device memory for the output vector `*d_y_out`.
+ * - **The caller is responsible for freeing `*d_y_out` using `cudaFree`.**
+ * - The input pointers (`d_col_offsets`, `d_row_indices`, `d_values`, `d_x`) must point to valid device memory allocated by the caller.
+ *
+ * @param[in]  rows          Number of rows in matrix A (dimension of vector y).
+ * @param[in]  cols          Number of columns in matrix A (dimension of vector x).
+ * @param[in]  nnz           Number of non-zero elements in matrix A.
+ * * @param[in]  d_col_offsets Device pointer to the CSC column offsets array.
+ * Size: \f$ \text{cols} + 1 \f$.
+ * @param[in]  d_row_indices Device pointer to the CSC row indices array.
+ * Size: \f$ \text{nnz} \f$.
+ * @param[in]  d_values      Device pointer to the non-zero values of matrix A.
+ * Size: \f$ \text{nnz} \f$.
+ * * @param[in]  d_x           Device pointer to the dense input vector x.
+ * Size: \f$ \text{cols} \times \text{sizeof(float)} \f$.
+ * @param[in]  alpha         Scalar scaling factor \f$ \alpha \f$.
+ * * @param[out] d_y_out       Address of a pointer. The function will allocate memory at this location
+ * and store the result vector y.
+ * Size: \f$ \text{rows} \times \text{sizeof(float)} \f$.
+ */
 void scale_and_multiply_on_gpu(
     int rows, int cols, int nnz,
     const int* d_col_offsets,  // Input: Device Pointer
@@ -1767,6 +1852,10 @@ void scale_and_multiply_on_gpu(
     size_t bufferSize = 0;
     float beta = 0.0f; // We are overwriting Y, not accumulating
 
+    // int last_offset;
+    // cudaMemcpy(&last_offset, &d_col_offsets[cols], sizeof(int), cudaMemcpyDeviceToHost);
+    // printf("Last offset: %d, NNZ: %d\n", last_offset, nnz);
+
     CUSPARSE_CHECK( cusparseSpMV_bufferSize(
         handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
         &alpha, matA, vecX, &beta, vecY, CUDA_R_32F,
@@ -1785,8 +1874,8 @@ void scale_and_multiply_on_gpu(
     CUSPARSE_CHECK( cusparseDestroyDnVec(vecY) );
     CUSPARSE_CHECK( cusparseDestroyDnVec(vecX) );
     CUSPARSE_CHECK( cusparseDestroySpMat(matA) );
-    CUSPARSE_CHECK( cusparseDestroy(handle) );
     CUDA_CHECK( cudaFree(d_buffer) );
+    CUSPARSE_CHECK( cusparseDestroy(handle) );
 }
 
 void print_gpu_array(const float* d_array, int n) {
@@ -1837,9 +1926,40 @@ void check_indices_sanity(int nnz, int num_rows, const int* d_indices) {
     printf("Indices look valid (Range checks passed).\n");
 }
 
-// ---------------------------------------------------------
-// GPU Solver
-// ---------------------------------------------------------
+/**
+ * @brief Solves the linear system \f$ A \cdot x = b \f$ using the cuDSS direct solver.
+ *
+ * This function performs a complete direct solve workflow (Analysis -> Factorization -> Solve)
+ * using the NVIDIA cuDSS library. It is suitable for general square sparse matrices.
+ *
+ * @section Format Matrix Format
+ * - **Input Matrix A:** CSR (Compressed Sparse Row).
+ * - **Input Vectors (b, x):** Dense vectors.
+ * - **Index Type:** 32-bit Integers (`int32_t`).
+ * - **Value Type:** 32-bit Floats (`float`).
+ *
+ * @note **Memory Responsibility:**
+ * - This function **allocates** device memory for the solution vector `*d_x_out`.
+ * - **The caller is responsible for freeing `*d_x_out` using `cudaFree`.**
+ * - The input arrays (`d_row_offsets`, `d_col_indices`, `d_values`, `d_b`) must be pre-allocated on the device.
+ *
+ * @param[in]  n             The dimension of the square system (number of rows/columns).
+ * @param[in]  nnz           The number of non-zero elements in matrix A.
+ * @param[in]  d_row_offsets Device pointer to the CSR row offsets array. 
+ * Size: \f$ n + 1 \f$.
+ * @param[in]  d_col_indices Device pointer to the CSR column indices array.
+ * Size: \f$ nnz \f$.
+ * @param[in]  d_values      Device pointer to the non-zero values of matrix A.
+ * Size: \f$ nnz \f$.
+ * @param[in]  d_b           Device pointer to the dense right-hand side vector \f$ b \f$.
+ * Size: \f$ n \times \text{sizeof(float)} \f$.
+ * @param[out] d_x_out       Address of a pointer. The function allocates memory at this location
+ * and stores the solution vector \f$ x \f$.
+ * Size: \f$ n \times \text{sizeof(float)} \f$.
+ *
+ * @warning This function assumes the matrix indices are **32-bit integers** (passed as `CUDA_R_32I`),
+ * even though the function parameters `n` and `nnz` are `int64_t`. Ensure your device arrays strictly contain 32-bit integers to avoid type mismatches.
+ */
 void solve_system_gpu(
     int64_t n,                  
     int64_t nnz,                
@@ -1849,8 +1969,21 @@ void solve_system_gpu(
     const float* d_b,           
     float** d_x_out             
 ) {
-    check_indices_sanity(nnz, n, d_row_offsets);
-    check_indices_sanity(nnz, n, d_col_indices); //Error 
+    // check_indices_sanity(nnz, n, d_row_offsets);
+    // check_indices_sanity(nnz, n, d_col_indices); //Error 
+
+        // std::cout << "\n=== Inside solve_system_gpu ===" << std::endl;
+        // std::cout << "n=" << n << ", nnz=" << nnz << std::endl;
+        
+        // check_indices_sanity(nnz, n, d_col_indices);  // Check columns
+        
+        // // Also check row offsets are valid
+        // int* h_row_check = new int[2];
+        // CUDA_CHECK(cudaMemcpy(h_row_check, d_row_offsets, sizeof(int), cudaMemcpyDeviceToHost));
+        // CUDA_CHECK(cudaMemcpy(h_row_check + 1, d_row_offsets + n, sizeof(int), cudaMemcpyDeviceToHost));
+        // std::cout << "Row offsets: first=" << h_row_check[0] << ", last=" << h_row_check[1] << std::endl;
+        // delete[] h_row_check;
+
     // 1. Allocate Result Vector X on GPU
     CUDA_CHECK( cudaMalloc((void**)d_x_out, n * sizeof(float)) );
     CUDA_CHECK( cudaMemset(*d_x_out, 0, n * sizeof(float)) );
@@ -1907,18 +2040,26 @@ void solve_system_gpu(
     CHECK_CUDSS( cudssDestroy(handle), "Destroy Handle" )
 }
 
-#define CHECK_CUSPARSE(func)                                                   \
-{                                                                              \
-    cusparseStatus_t status = (func);                                          \
-    if (status != CUSPARSE_STATUS_SUCCESS) {                                   \
-        printf("CUSPARSE API failed at line %d with error: %s (%d)\n",         \
-               __LINE__, cusparseGetErrorString(status), status);              \                                                  
-    }                                                                          \
+#define CHECK_CUSPARSE(func) \
+{ \
+    cusparseStatus_t status = (func); \
+    if (status != CUSPARSE_STATUS_SUCCESS) { \
+        printf("CUSPARSE API failed at line %d with error: %s (%d)\n", \
+               __LINE__, cusparseGetErrorString(status), status); \
+    } \
 }
 
-// ---------------------------------------------------------
-// Function: Sort COO Matrix In-Place 
-// ---------------------------------------------------------
+/**
+ * @brief Sorts a COO format matrix by row indices (primary) and column indices (secondary).
+ * * This function ensures that the input COO arrays are sorted, which is often required 
+ * for conversion to CSR or other sparse operations.
+ * * @param[in]     num_rows Number of rows.
+ * @param[in]     num_cols Number of columns.
+ * @param[in]     nnz      Number of non-zeros.
+ * @param[in,out] d_rows   Device ptr to row indices (Sorted in-place).
+ * @param[in,out] d_cols   Device ptr to col indices (Sorted in-place).
+ * @param[in,out] d_vals   Device ptr to values (Reordered in-place to match indices).
+ */
 void sort_coo_matrix_cusparse(
     int num_rows, 
     int num_cols, 
@@ -1977,6 +2118,8 @@ void sort_coo_matrix_cusparse(
     
 
     CHECK_CUSPARSE( cusparseGather(handle, vec_values, vec_permutation) )
+    
+    CUDA_CHECK(cudaMemcpy(d_vals, d_values_sorted, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
 
     // 6. Cleanup
     CHECK_CUSPARSE( cusparseDestroySpVec(vec_permutation) )
@@ -1986,11 +2129,94 @@ void sort_coo_matrix_cusparse(
     CUDA_CHECK(cudaFree(d_buffer));
 }
 
+// Helper kernel to initialize indices: [0, 1, 2, ...]
+__global__ void init_indices(int* ptr, int nnz) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < nnz) ptr[idx] = idx;
+}
+
+// Helper kernel to permute data based on sorted indices
+// out[i] = in[ sorted_indices[i] ]
+__global__ void permute_data(const int* in_cols, int* out_cols, 
+                             const float* in_vals, float* out_vals, 
+                             const int* sorted_indices, int nnz) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i < nnz) {
+        int old_pos = sorted_indices[i];
+        out_cols[i] = in_cols[old_pos];
+        out_vals[i] = in_vals[old_pos];
+    }
+}
+
+
+void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
+    
+    // Pointers for sorted/temp arrays
+    int *d_indices, *d_indices_sorted;
+    int *d_rows_sorted, *d_cols_sorted; 
+    float *d_vals_sorted;
+    
+    // 1. Allocate Temporary Buffers
+    //    We need an index array to track where the rows move, so we can move cols/vals later.
+    CUDA_CHECK(cudaMalloc((void**)&d_indices, nnz * sizeof(int)));
+    CUDA_CHECK(cudaMalloc((void**)&d_indices_sorted, nnz * sizeof(int)));
+    CUDA_CHECK(cudaMalloc((void**)&d_rows_sorted, nnz * sizeof(int)));
+    
+    //    Allocation of output buffers for cols/vals
+    CUDA_CHECK(cudaMalloc((void**)&d_cols_sorted, nnz * sizeof(int))); 
+    CUDA_CHECK(cudaMalloc((void**)&d_vals_sorted, nnz * sizeof(float)));
+
+    // 2. Initialize Permutation Index [0, 1, 2, ..., NNZ-1]
+    int blockSize = 256;
+    int numBlocks = (nnz + blockSize - 1) / blockSize;
+    
+    init_indices<<<numBlocks, blockSize>>>(d_indices, nnz);
+
+    // 3. Determine Temporary Storage Size for CUB Radix Sort
+    void *d_temp_storage = NULL;
+    size_t temp_storage_bytes = 0;
+
+    //    Query workspace requirement
+    //    Key: d_rows, Value: d_indices
+    CUDA_CHECK(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
+        d_rows, d_rows_sorted, d_indices, d_indices_sorted, nnz));
+    
+    //    Allocate workspace
+    CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+
+    // 4. Run the Sort
+    //    Sorts 'rows' into 'rows_sorted', and moves 'indices' into 'indices_sorted'
+    CUDA_CHECK(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
+        d_rows, d_rows_sorted, d_indices, d_indices_sorted, nnz));
+
+    // 5. Permute Cols and Vals using the new index order
+    //    We effectively "apply" the sort permutation to the other two arrays.
+    permute_data<<<numBlocks, blockSize>>>(d_cols, d_cols_sorted, 
+                                           d_vals, d_vals_sorted, 
+                                           d_indices_sorted, nnz);
+
+    // 6. Copy sorted data back to original pointers
+    //    (Since the function arguments are pointers-by-value, we must copy the data back 
+    //     to the original locations unless you change the function signature to accept int**).
+    CUDA_CHECK(cudaMemcpy(d_rows, d_rows_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(d_cols, d_cols_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(d_vals, d_vals_sorted, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_indices)); 
+    CUDA_CHECK(cudaFree(d_indices_sorted)); 
+    CUDA_CHECK(cudaFree(d_rows_sorted)); 
+    CUDA_CHECK(cudaFree(d_cols_sorted)); 
+    CUDA_CHECK(cudaFree(d_vals_sorted)); 
+    CUDA_CHECK(cudaFree(d_temp_storage));
+}
+
+
 int main()
 {
     // Problem size
-    // int xN = 100, yN = 50, zN = 50;
-    int xN = 2, yN = 2, zN = 2;
+    int xN = 100, yN = 50, zN = 50;
+    // int xN = 100, yN = 2, zN = 2;
     const int nCell = 4 * xN * yN * zN;
 
     int sizeX = xN + 2;
@@ -2047,127 +2273,171 @@ int main()
     
     auto [d_rows_coo, d_cols_coo, d_vals_coo, nnz] = sparse_matrix;
 
-    //sort_coo_cub(d_rows_coo, d_cols_coo, d_vals_coo, nnz);
-    sort_coo_matrix_cusparse(nCell, nCell, nnz, d_rows_coo, d_cols_coo, d_vals_coo);
     
     std::cout << "Sparse matrix: " << nnz << " non-zeros" << std::endl;
     std::cout << "Sparsity: " << (100.0 * nnz / ((long long)nCell * nCell)) << "%" << std::endl;
-
     
-  
-
-    // Option 1: Copy to host 
-    // std::vector<int> rows(nnz), cols(nnz);
-    // std::vector<float> vals(nnz);
-    // cudaMemcpy(rows.data(), d_rows_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost);
-    // cudaMemcpy(cols.data(), d_cols_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost);
-    // cudaMemcpy(vals.data(), d_vals_coo, nnz * sizeof(float), cudaMemcpyDeviceToHost);
-    // std::cout << "--- Printing Sparse Data ---" << std::endl;
-    // for (int i = 0; i < nnz; ++i) {
-    //   std::cout << "Index " << i << ": "
-    //             << "(Row=" << rows[i] << ", "
-    //             << "Col=" << cols[i] << ") "
-    //             << "Val=" << vals[i] << std::endl;
-    // }
-
+    
+    
+    // //-------------------------------------------------------
+    // // Option 1: Copy to host 
+    // //-------------------------------------------------------
+    //     std::vector<int> rows(nnz), cols(nnz);
+    //     std::vector<float> vals(nnz);
+    //     cudaMemcpy(rows.data(), d_rows_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost);
+    //     cudaMemcpy(cols.data(), d_cols_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost);
+    //     cudaMemcpy(vals.data(), d_vals_coo, nnz * sizeof(float), cudaMemcpyDeviceToHost);
+    //     std::cout << "--- Printing Sparse Data ---" << std::endl;
+    //     for (int i = 0; i < nnz; ++i) {
+    //       std::cout << "Index " << i << ": "
+    //                 << "(Row=" << rows[i] << ", "
+    //                 << "Col=" << cols[i] << ") "
+    //                 << "Val=" << vals[i] << std::endl;
+    //             }
+    
+    //-------------------------------------------------------
+    //Sorting for csr 
+    //-------------------------------------------------------
+    // sort_coo_cub(d_rows_coo, d_cols_coo, d_vals_coo, nnz);
+     sort_coo_matrix_cusparse(nCell, nCell, nnz, d_rows_coo, d_cols_coo, d_vals_coo);
+    // print_coo_matrix_gpu(nCell, nCell, nnz, d_rows_coo, d_cols_coo, d_vals_coo,-1); //Debug
+    
+    
     //-------------------------------------------------------
     //J^T * J
     //-------------------------------------------------------
-    // Result pointers
-    int *d_hessian_rows, *d_hesian_cols;
-    float *d_hessian_vals;
-    int hessian_nnz;
-    //Transpose jacobian pointers into CSC form
-    int *d_AT_cscOffsets, *d_AT_columns;
-    float *d_AT_values;
+        // Result pointers
+        int *d_hessian_rows, *d_hessian_cols;
+        float *d_hessian_vals;
+        int hessian_nnz;
+        //Transpose jacobian pointers into CSC form
+        int *d_AT_cscOffsets, *d_AT_columns;
+        float *d_AT_values;
 
-    compute_AtA_debug(d_rows_coo, d_cols_coo, d_vals_coo, nnz, 
-                    nCell, nCell,
-                    &d_hessian_rows, &d_hesian_cols, &d_hessian_vals,
-                    &hessian_nnz,&d_AT_cscOffsets, 
-                    &d_AT_columns,&d_AT_values);
-    
-                        
-    // std::cout << "Printing J^T"<<std::endl;                
-    // print_csc_matrix(nCell, nCell, d_AT_cscOffsets, d_AT_columns, d_AT_values);
+        compute_AtA_debug(d_rows_coo, d_cols_coo, d_vals_coo, nnz, 
+                        nCell, nCell,
+                        &d_hessian_rows, &d_hessian_cols, &d_hessian_vals,
+                        &hessian_nnz,&d_AT_cscOffsets, 
+                        &d_AT_columns,&d_AT_values);
+        //It is ok
+        // std::cout << "Printing J^T * J"<<std::endl;        
+        //print_csr_matrix(nCell, hessian_nnz, d_hessian_rows, d_hessian_cols, d_hessian_vals);
+        // It is ok                      
+        // std::cout << "Printing J^T"<<std::endl;                
+        // print_csc_matrix(nCell, nCell, d_AT_cscOffsets, d_AT_columns, d_AT_values);
 
     //-------------------------------------------------------
     // λ * I
     //-------------------------------------------------------
-    int *d_identity_row_ptr, *d_identity_cols_ptr;
-    float *d_identity_vals_ptr;
-    
-    // Allocate Device Memory for identity matrix (CSR form)
-    CUDA_CHECK(cudaMalloc(&d_identity_row_ptr, (nCell + 1) * sizeof(int)));
-    CUDA_CHECK(cudaMalloc(&d_identity_cols_ptr, nCell * sizeof(int)));
-    CUDA_CHECK(cudaMalloc(&d_identity_vals_ptr, nCell * sizeof(float)));
-
-    float lambda_scalar=10e-3;
-
-
-    create_identity_csr_and_scale(nCell, lambda_scalar, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
-    
-    std::cout << "Scaled identity matrix"<<std::endl;
-    print_csr_matrix(nCell, nCell, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
-
-    //-------------------------------------------------------
-    //Add (J^T * J + λ * I)*delta
-    //-------------------------------------------------------
-        // Outputs 
-        int *d_lhs_rows = nullptr;
-        int *d_lhs_cols = nullptr;
-        float *d_lhs_vals = nullptr;
-        int nnzlhs = 0;
-
-        float delta=0.1; //Iteration step
-
-        add_csr_cusparse(delta,nCell, nCell, hessian_nnz, d_hessian_rows, d_hesian_cols, 
-            d_hessian_vals, nCell, d_identity_row_ptr,
-            d_identity_cols_ptr, d_identity_vals_ptr, 
-            &nnzlhs, &d_lhs_rows,&d_lhs_cols, &d_lhs_vals);
+        int *d_identity_row_ptr, *d_identity_cols_ptr;
+        float *d_identity_vals_ptr;
         
-        std::cout << "(J^T * J + λ * I)*delta "<<std::endl;
-        print_csr_matrix(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, d_lhs_vals);
-        print_csc_matrix(nCell, nCell, d_lhs_cols, d_lhs_rows, d_lhs_vals);
-    //
+        // Allocate Device Memory for identity matrix (CSR form)
+        CUDA_CHECK(cudaMalloc(&d_identity_row_ptr, (nCell + 1) * sizeof(int)));
+        CUDA_CHECK(cudaMalloc(&d_identity_cols_ptr, nCell * sizeof(int)));
+        CUDA_CHECK(cudaMalloc(&d_identity_vals_ptr, nCell * sizeof(float)));
 
+        float lambda_scalar=10e-3;
+
+
+        create_identity_csr_and_scale(nCell, lambda_scalar, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
+        
+        // std::cout << "Scaled identity matrix"<<std::endl;
+        // print_csr_matrix(nCell, nCell, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
+        
     //-------------------------------------------------------
     //-J^T*r(y)(right hand side )
     //-------------------------------------------------------
-        std::cout << "\n residual"<<std::endl;
-        print_gpu_array(fold, nCell); 
+        // std::cout << "\n residual"<<std::endl;
+        //   print_gpu_array(fold, nCell); //Debug
         
-
         float *rhs=nullptr;
-        scale_and_multiply_on_gpu(nCell, nCell, nCell, d_AT_columns, 
-            d_AT_cscOffsets, d_AT_values, fold, -1, &rhs);
+        scale_and_multiply_on_gpu(nCell, nCell, nnz, d_AT_cscOffsets, 
+            d_AT_columns, d_AT_values, fold, -1, &rhs);
         
-        std::cout << "\n -J^T*r(y)"<<std::endl;
-        print_gpu_array(rhs, nCell);   
+        CUDA_CHECK(cudaFree(fold));
+        CUDA_CHECK(cudaFree(d_AT_cscOffsets));
+        CUDA_CHECK(cudaFree(d_AT_columns));
+        CUDA_CHECK(cudaFree(d_AT_values));
+        // std::cout << "\n -J^T*r(y)"<<std::endl;
+        //  print_gpu_array(rhs, nCell);   //Debug
+        
+        //-------------------------------------------------------
+        //Add (J^T * J + λ * I)*delta
+        //-------------------------------------------------------
+            // Outputs 
+            int *d_lhs_rows = nullptr;
+            int *d_lhs_cols = nullptr;
+            float *d_lhs_vals = nullptr;
+            int nnzlhs = 0;
+            
+            float delta=1; //Iteration step
+            
+             int h_last_A, h_last_B;
+            cudaMemcpy(&h_last_A, d_hessian_rows + nCell, sizeof(int), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&h_last_B, d_identity_row_ptr + nCell, sizeof(int), cudaMemcpyDeviceToHost);
+
+            // printf("--- CSR VALIDATION ---\n");
+            // printf("A: m=%d, nnz=%d, LastOffset=%d\n", nCell, hessian_nnz, h_last_A);
+            // printf("B: m=%d, nnz=%d, LastOffset=%d\n", nCell, nCell, h_last_B);
+
+            // if (h_last_B != nCell) {
+            //     printf("ERROR: B is not a valid Identity Row Offset array!\n");
+            // }
+
+            add_csr_cusparse(delta,nCell, nCell, hessian_nnz, d_hessian_rows, d_hessian_cols, 
+                d_hessian_vals, nCell, d_identity_row_ptr,
+                d_identity_cols_ptr, d_identity_vals_ptr, 
+                &nnzlhs, &d_lhs_rows,&d_lhs_cols, &d_lhs_vals);
+            
+           
+            
+            //Free whatever we dont need anymore
+            CUDA_CHECK(cudaFree(d_hessian_rows));
+            CUDA_CHECK(cudaFree(d_hessian_cols));
+            CUDA_CHECK(cudaFree(d_hessian_vals));
+        
+
+            
+            CUDA_CHECK(cudaFree(d_identity_row_ptr));
+            CUDA_CHECK(cudaFree(d_identity_cols_ptr));
+            CUDA_CHECK(cudaFree(d_identity_vals_ptr));
+
+            // std::cout << "(J^T * J + λ * I)*delta "<<std::endl;
+            // print_csr_matrix(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, d_lhs_vals);
+            // check_indices_sanity(nnzlhs,nCell,d_lhs_rows);
+            // check_indices_sanity(nnzlhs,nCell,d_lhs_cols);
+            // std::cout << "(J^T * J + λ * I)*delta in CSC format"<<std::endl;
+            // print_csc_matrix(nCell, nCell, d_lhs_cols, d_lhs_rows, d_lhs_vals);
+            
+            
+            
+            //------------------------------------------------------
+            //Solve the system 
+            //------------------------------------------------------
+            //
+                float *d_solution=nullptr;
+                printf("DEBUG: Pointer passed to print: %p\n", (void*)d_lhs_cols);
+                solve_system_gpu(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, 
+                d_lhs_vals, rhs,&d_solution );
+            
+                // print_gpu_array(d_solution, nCell);
+            //
+
+            // Cleanup
+                        
+    CUDA_CHECK(cudaFree(d_lhs_rows));
+    CUDA_CHECK(cudaFree(d_lhs_cols));
+    CUDA_CHECK(cudaFree(d_lhs_vals));
+    CUDA_CHECK(cudaFree(rhs));
+
+
+
+    CUDA_CHECK(cudaFree(d_rows_coo));
+    CUDA_CHECK(cudaFree(d_cols_coo));
+    CUDA_CHECK(cudaFree(d_vals_coo));
+    CUDA_CHECK( cudaFree(d_solution));
     
-    //------------------------------------------------------
-    //Solve the system 
-    //------------------------------------------------------
-    //
-        float *d_solution=nullptr;
-        printf("DEBUG: Pointer passed to print: %p\n", (void*)d_lhs_cols);
-        solve_system_gpu(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, 
-            d_lhs_vals, rhs,&d_solution );
-        
-        print_gpu_array(d_solution, nCell);
-    //
-
-    // Cleanup
-    cudaFree(d_rows_coo);
-    cudaFree(d_cols_coo);
-    cudaFree(d_vals_coo);
-    // cudaFree(d_solution);
-    CUDA_CHECK(cudaFree(fold));
-    CUDA_CHECK(cudaFree(d_identity_row_ptr));
-    CUDA_CHECK(cudaFree(d_identity_cols_ptr));
-    CUDA_CHECK(cudaFree(d_identity_vals_ptr));
-
-
     std::cout << "\nComputation complete!" << std::endl;
 
     return 0;

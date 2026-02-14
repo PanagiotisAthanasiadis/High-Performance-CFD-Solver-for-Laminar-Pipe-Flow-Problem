@@ -65,48 +65,30 @@ int main()
     auto [fold, sparse_matrix] = Residuals_Sparse_Jacobian_finite_diff(
         Re, y.data(), xN, yN, zN, u_inlet.data(), dx, dy, dz);
     
+    for (int i=0; i<fold.size(); i++)
+    {
+        std::cout << "i: " << fold[i]<<std::endl;
+    }
     auto [d_rows_coo, d_cols_coo, d_vals_coo, nnz] = sparse_matrix;
     
     std::cout << "Sparse matrix: " << nnz << " non-zeros" << std::endl;
     std::cout << "Sparsity: " << (100.0 * nnz / ((long long)nCell * nCell)) << "%" << std::endl;
     
     // Option 1: Copy to host 
-    std::vector<int> rows(nnz), cols(nnz);
-    std::vector<float> vals(nnz);
-    cudaMemcpy(rows.data(), d_rows_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(cols.data(), d_cols_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(vals.data(), d_vals_coo, nnz * sizeof(float), cudaMemcpyDeviceToHost);
-    std::cout << "--- Printing Sparse Data ---" << std::endl;
-    for (int i = 0; i < nnz; ++i) {
-      std::cout << "Index " << i << ": "
-                << "(Row=" << rows[i] << ", "
-                << "Col=" << cols[i] << ") "
-                << "Val=" << vals[i] << std::endl;
-    }
-
-    std::vector<float> solution;
-    float *d_solution;
-    CUDA_CHECK(cudaMalloc(&d_solution, nCell * sizeof(float)));
-    // // Option 2: Convert to CSR 
-    int *d_row_ptr, *d_col_idx;
-    float *d_values;
-    convert_coo_to_csr_gpu(d_rows_coo, d_cols_coo, d_vals_coo, nnz, nCell,
-                          &d_row_ptr, &d_col_idx, &d_values);
-    
-    // solve_with_cusolver_sparse(d_row_ptr, d_col_idx, d_values, nnz,
-    //                           devu_fold, d_solution, nCell);
-    
-    CUDA_CHECK(cudaMemcpy( solution.data(),d_solution, nCell * sizeof(float), cudaMemcpyDeviceToHost));
-    for (auto i : solution) {
-        std::cout << i <<std::endl ;
-    }
+    // std::vector<int> rows(nnz), cols(nnz);
+    // std::vector<float> vals(nnz);
+    // cudaMemcpy(rows.data(), d_rows_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(cols.data(), d_cols_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(vals.data(), d_vals_coo, nnz * sizeof(float), cudaMemcpyDeviceToHost);
+    // std::cout << "--- Printing Sparse Data ---" << std::endl;
+    // for (int i = 0; i < nnz; ++i) {
+    //   std::cout << "Index " << i << ": "
+    //             << "(Row=" << rows[i] << ", "
+    //             << "Col=" << cols[i] << ") "
+    //             << "Val=" << vals[i] << std::endl;
+    // }
 
 
-    // Cleanup
-    cudaFree(d_rows_coo);
-    cudaFree(d_cols_coo);
-    cudaFree(d_vals_coo);
-    cudaFree(d_solution);
 
 
 

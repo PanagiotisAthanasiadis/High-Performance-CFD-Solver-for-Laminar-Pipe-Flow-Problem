@@ -48,7 +48,7 @@ target_compile_options(navier_stokes_lib PRIVATE
         "-g"
         -Xcompiler
         "-fopenmp"
-        -arch=sm_89 
+        -arch=native 
     >
 )
 
