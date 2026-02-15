@@ -21,6 +21,7 @@
 #include <cusparse.h>
 #include <cub/cub.cuh>
 #include <cudss.h> 
+#include <cublas_v2.h>
 
 
 // ============================================================================ 
@@ -682,6 +683,60 @@ kernel_continuity(
     }
 }
 
+//We might use nvida file i/o cuFile
+std::tuple<float*,float*,float*,float*> boundary_conditions_final(float *ysol,
+                       const int xN, const int yN, const int zN,
+                       const float *u_inlet)
+{
+    int sizeX = xN + 2;
+    int sizeY = yN + 2;
+    int sizeZ = zN + 2;
+    int totalSize = sizeX * sizeY * sizeZ;
+    int nCell = 4 * xN * yN * zN;
+
+    
+    float *d_u_inlet,*ud, *vd, *wd, *pd;
+
+    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(float))));
+
+    int inletSize = sizeY * sizeZ;
+    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(float))));
+    
+    //Copy data to Device
+    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(float), cudaMemcpyHostToDevice));
+
+    // Initialize boundary conditions
+    dim3 bi_th(8, 8, 4);
+    dim3 bi_bl((xN + bi_th.x - 1) / bi_th.x,
+               (yN + bi_th.y - 1) / bi_th.y,
+               (zN + bi_th.z - 1) / bi_th.z);
+    boundary_conditions_initialization_single<<<bi_bl, bi_th>>>(ysol, ud, vd, wd, pd, xN, yN, zN);
+    CUDA_CHECK(cudaGetLastError());
+
+    // Apply boundary conditions
+    dim3 blk(8, 8, 4);
+    dim3 grd((sizeX + blk.x - 1) / blk.x,
+             (sizeY + blk.y - 1) / blk.y,
+             (sizeZ + blk.z - 1) / blk.z);
+    boundary_conditions_apply_single<<<grd, blk>>>(d_u_inlet, ud, vd, wd, pd, xN, yN, zN);
+    CUDA_CHECK(cudaGetLastError());
+
+    CUDA_CHECK(cudaFree(d_u_inlet));
+    CUDA_CHECK(cudaFree(ysol));
+
+    return {ud,vd,wd,pd};
+}
+
+
+
+
+
+
+
 // ============================================================================
 // HOST FUNCTION: UV VELOCITY SINGLE
 // ============================================================================
@@ -879,12 +934,14 @@ Residuals_Sparse_Jacobian_finite_diff(
             int ysol_blocks = (nCell + ysol_threads - 1) / ysol_threads;
             build_ysol_batch_kernel<<<ysol_blocks, ysol_threads, 0, stream>>>(
                 d_ysol, hd, d_ysol_batch, nCell, current_grain, d_t_batch);
+            CUDA_CHECK(cudaGetLastError());
 
             int nc = xN * yN * zN;
             int threads = 256; //Prefer 1d for better coalesced memory access
             int blocks = (nc + threads - 1) / threads;
             boundary_conditions_initialization<<<blocks, threads, 0, stream>>>(
             d_ysol_batch, ud, vd, wd, pd, xN, yN, zN, current_grain);
+            CUDA_CHECK(cudaGetLastError());
 
             dim3 blk(8, 8, 4);
             dim3 grd((sizeX + blk.x - 1) / blk.x,
@@ -892,6 +949,7 @@ Residuals_Sparse_Jacobian_finite_diff(
                     (sizeZ + blk.z - 1) / blk.z);
             boundary_conditions_apply<<<grd, blk, 0, stream>>>(
                 d_u_inlet, ud, vd, wd, pd, xN, yN, zN, current_grain);
+            CUDA_CHECK(cudaGetLastError());
 
             dim3 t(8, 8, 4);
             dim3 bks((xN + t.x - 1) / t.x,
@@ -901,18 +959,22 @@ Residuals_Sparse_Jacobian_finite_diff(
             kernel_u_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
+            CUDA_CHECK(cudaGetLastError());
 
             kernel_v_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
+            CUDA_CHECK(cudaGetLastError());
 
             kernel_w_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
+            CUDA_CHECK(cudaGetLastError());
 
             kernel_continuity<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, wd, xN, yN, zN,
                 dx, dy, dz, sizeY, sizeZ);
+            CUDA_CHECK(cudaGetLastError());
             // ================================================================
 
             dim3 tt(32, 4);
@@ -923,6 +985,7 @@ Residuals_Sparse_Jacobian_finite_diff(
                 d_all_rows, d_all_cols, d_all_vals,
                 d_global_counter,
                 nCell, current_grain, start);
+            CUDA_CHECK(cudaGetLastError());
             
             int total_attempted_nnz;
             cudaMemcpy(&total_attempted_nnz, d_global_counter, sizeof(int), cudaMemcpyDeviceToHost);
@@ -1008,69 +1071,6 @@ coordinates(std::vector<float> &xcoor, std::vector<float> &ycoor,
 // }
 
 
-// void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
-    
-//     // Pointers for sorted/temp arrays
-//     int *d_indices, *d_indices_sorted;
-//     int *d_rows_sorted, *d_cols_sorted; 
-//     float *d_vals_sorted;
-    
-//     // 1. Allocate Temporary Buffers
-//     //    We need an index array to track where the rows move, so we can move cols/vals later.
-//     CUDA_CHECK(cudaMalloc((void**)&d_indices, nnz * sizeof(int)));
-//     CUDA_CHECK(cudaMalloc((void**)&d_indices_sorted, nnz * sizeof(int)));
-//     CUDA_CHECK(cudaMalloc((void**)&d_rows_sorted, nnz * sizeof(int)));
-    
-//     //    Allocation of output buffers for cols/vals
-//     CUDA_CHECK(cudaMalloc((void**)&d_cols_sorted, nnz * sizeof(int))); 
-//     CUDA_CHECK(cudaMalloc((void**)&d_vals_sorted, nnz * sizeof(float)));
-
-//     // 2. Initialize Permutation Index [0, 1, 2, ..., NNZ-1]
-//     int blockSize = 256;
-//     int numBlocks = (nnz + blockSize - 1) / blockSize;
-    
-//     init_indices<<<numBlocks, blockSize>>>(d_indices, nnz);
-
-//     // 3. Determine Temporary Storage Size for CUB Radix Sort
-//     void *d_temp_storage = NULL;
-//     size_t temp_storage_bytes = 0;
-
-//     //    Query workspace requirement
-//     //    Key: d_rows, Value: d_indices
-//     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
-//         d_rows, d_rows_sorted, d_indices, d_indices_sorted, nnz));
-    
-//     //    Allocate workspace
-//     CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-
-//     // 4. Run the Sort
-//     //    Sorts 'rows' into 'rows_sorted', and moves 'indices' into 'indices_sorted'
-//     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
-//         d_rows, d_rows_sorted, d_indices, d_indices_sorted, nnz));
-
-//     // 5. Permute Cols and Vals using the new index order
-//     //    We effectively "apply" the sort permutation to the other two arrays.
-//     permute_data<<<numBlocks, blockSize>>>(d_cols, d_cols_sorted, 
-//                                            d_vals, d_vals_sorted, 
-//                                            d_indices_sorted, nnz);
-
-//     // 6. Copy sorted data back to original pointers
-//     //    (Since the function arguments are pointers-by-value, we must copy the data back 
-//     //     to the original locations unless you change the function signature to accept int**).
-//     CUDA_CHECK(cudaMemcpy(d_rows, d_rows_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
-//     CUDA_CHECK(cudaMemcpy(d_cols, d_cols_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
-//     CUDA_CHECK(cudaMemcpy(d_vals, d_vals_sorted, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
-
-//     // Cleanup
-//     CUDA_CHECK(cudaFree(d_indices)); 
-//     CUDA_CHECK(cudaFree(d_indices_sorted)); 
-//     CUDA_CHECK(cudaFree(d_rows_sorted)); 
-//     CUDA_CHECK(cudaFree(d_cols_sorted)); 
-//     CUDA_CHECK(cudaFree(d_vals_sorted)); 
-//     CUDA_CHECK(cudaFree(d_temp_storage));
-// }
-
-
 
 // -------------------------------------------------------------------------
 // Kernel: Generate Selection Flags
@@ -1101,6 +1101,7 @@ void filter_csr_cub(float threshold,int rows, int old_nnz,
     int gridSize = (old_nnz + blockSize - 1) / blockSize;
     
     generate_flags_kernel<<<gridSize, blockSize>>>(old_nnz, d_vals, d_flags, threshold);
+    CUDA_CHECK(cudaGetLastError());
 
     // ---------------------------------------------------------------------
     // 2. Calculate New Row Counts (Segmented Reduce)
@@ -1644,6 +1645,7 @@ void create_identity_csr_and_scale(int N, float alpha,
     int gridSize = ( (N + 1) + blockSize - 1) / blockSize;
     // We launch N+1 threads to handle the extra row pointer element safely
     identity_csr_and_scale_kernel<<<gridSize, blockSize>>>(N, alpha, d_row_offsets, d_cols, d_vals);
+    CUDA_CHECK(cudaGetLastError());
 }
 
 
@@ -1970,7 +1972,7 @@ void solve_system_gpu(
     float** d_x_out             
 ) {
     // check_indices_sanity(nnz, n, d_row_offsets);
-    // check_indices_sanity(nnz, n, d_col_indices); //Error 
+    check_indices_sanity(nnz, n, d_col_indices); 
 
         // std::cout << "\n=== Inside solve_system_gpu ===" << std::endl;
         // std::cout << "n=" << n << ", nnz=" << nnz << std::endl;
@@ -2011,13 +2013,13 @@ void solve_system_gpu(
                                       CUDSS_MVIEW_FULL, 
                                       CUDSS_BASE_ZERO), "cudssMatrixCreateCsr" )
 
-    // Vector X (Dense Float)
+    // Vector X (Dense Float) //At the moment supports only dense vectors
     CHECK_CUDSS( cudssMatrixCreateDn(&vecX, n, 1, n, 
                                      (void*)*d_x_out, 
                                      CUDA_R_32F,            // Value Type (Float)
                                      CUDSS_LAYOUT_COL_MAJOR), "cudssMatrixCreateDn(X)" )
 
-    // Vector B (Dense Float)
+    // Vector B (Dense Float) //At the moment supports only dense vectors
     CHECK_CUDSS( cudssMatrixCreateDn(&vecB, n, 1, n, 
                                      (void*)d_b, 
                                      CUDA_R_32F,            // Value Type (Float)
@@ -2171,6 +2173,7 @@ void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
     int numBlocks = (nnz + blockSize - 1) / blockSize;
     
     init_indices<<<numBlocks, blockSize>>>(d_indices, nnz);
+    CUDA_CHECK(cudaGetLastError());
 
     // 3. Determine Temporary Storage Size for CUB Radix Sort
     void *d_temp_storage = NULL;
@@ -2194,6 +2197,7 @@ void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
     permute_data<<<numBlocks, blockSize>>>(d_cols, d_cols_sorted, 
                                            d_vals, d_vals_sorted, 
                                            d_indices_sorted, nnz);
+    CUDA_CHECK(cudaGetLastError());
 
     // 6. Copy sorted data back to original pointers
     //    (Since the function arguments are pointers-by-value, we must copy the data back 
@@ -2211,11 +2215,136 @@ void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
     CUDA_CHECK(cudaFree(d_temp_storage));
 }
 
+#define CUBLAS_CHECK(call) \
+    do { \
+        cublasStatus_t status = (call); \
+        if (status != CUBLAS_STATUS_SUCCESS) { \
+            std::cerr << "cuBLAS Error:\n" \
+                      << "  File:     " << __FILE__ << "\n" \
+                      << "  Line:     " << __LINE__ << "\n" \
+                      << "  Function: " << #call << "\n" \
+                      << "  Status:   " << status << std::endl; \
+            exit(EXIT_FAILURE); \
+        } \
+    } while (0)
+
+
+
+/**
+ * @brief Computes half the squared norm (0.5 * sum of squares) of a GPU array.
+ *
+ * This function calculates the dot product of the input vector with itself
+ * using the highly optimized cuBLAS library, and then scales the final scalar 
+ * result by 0.5 on the host (CPU).
+ *
+ * @note Mathematically, this computes half the squared norm ($0.5 \times ||x||^2$). 
+ *
+ * @param handle   A pre-initialized cuBLAS handle to manage GPU context and streams.
+ * @param residual Pointer to the single-precision float array residing in device (GPU) memory.
+ * @param n        The number of elements in the `residual` array.
+ * @return float   The computed sum of the squared elements, multiplied by 0.5 written bask to (CPU) memory.
+ */
+float square_norm(cublasHandle_t handle, float * residual, int n)
+{
+    float result = 0.0f;
+    
+    // Ensure the scalar result is written directly to the host variable 'result'
+    CUBLAS_CHECK(cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST));
+    
+    CUBLAS_CHECK(cublasSdot(handle, n, residual, 1, residual, 1, &result));
+    
+    return result * 0.5f;
+}
+
+/**
+ * @brief Computes  the exact L2 norm squared ( ||x||_2 ^2)  of a GPU array.
+ *
+ * This function calculates the true Euclidean norm (the square root of the sum 
+ * of squared elements) of the input vector using the highly optimized 
+ * cuBLAS library. 
+ * * @note Unlike a standard dot product (`cublasSdot`), `cublasSnrm2` is specifically 
+ * designed to be numerically stable. It guards against intermediate underflow 
+ * or overflow that can happen when squaring very large or very small numbers.
+ *
+ * @param handle   A pre-initialized cuBLAS handle to manage GPU context and streams.
+ * @param residual Pointer to the single-precision float array residing in device (GPU) memory.
+ * @param n        The number of elements in the `residual` array.
+ * @return float   The computed exact L2 norm of the array, multiplied by 0.5.
+ */
+float L2_norm_squared(cublasHandle_t handle, float * residual, int n)
+{
+    float result = 0.0f;
+    
+    // Ensure the scalar result is written directly to the host variable 'result'
+    CUBLAS_CHECK(cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST));
+    
+    // Compute the exact L2 norm (Euclidean norm) of 'residual'
+    // Parameters: handle, n, X, strideX, output_result
+    CUBLAS_CHECK(cublasSnrm2(handle, n, residual, 1, &result));
+    
+    return result * result ;
+}
+
+
+/**
+ * @brief CUDA kernel to calculate the element-wise magnitude of a 3D velocity field.
+ * * Each thread computes the Euclidean norm for a single point in space using the formula:
+ * velmag = sqrt(u^2 + v^2 + w^2).
+ *
+ * @param[in]  n      The total number of elements in the input vectors.
+ * @param[in]  u      Device pointer to the x-velocity component array.
+ * @param[in]  v      Device pointer to the y-velocity component array.
+ * @param[in]  w      Device pointer to the z-velocity component array.
+ * @param[out] velmag Device pointer to the array where the calculated magnitudes will be stored.
+ */
+__global__ void vel_mag_kernel(int n, const float* u, const float* v, const float* w, float* velmag) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        velmag[i] = sqrtf(u[i] * u[i] + v[i] * v[i] + w[i] * w[i]);
+    }
+}
+
+
+/**
+ * @brief Allocates GPU memory and computes the velocity magnitude across three components.
+ * * This wrapper handles the memory allocation for the result vector and launches the 
+ * vel_mag_kernel. It uses the CUDA_CHECK macro to ensure all GPU operations succeed.
+ *
+ * @warning This function allocates memory on the GPU using cudaMalloc. The caller is 
+ * responsible for releasing this memory using @ref cudaFree() to prevent leaks.
+ *
+ * @param[in] n    The number of elements in the vectors.
+ * @param[in] d_u  Device pointer to the input u-component vector.
+ * @param[in] d_v  Device pointer to the input v-component vector.
+ * @param[in] d_w  Device pointer to the input w-component vector.
+ * * @return float* A pointer to the newly allocated device memory containing the 
+ * velocity magnitude vector. Returns nullptr if allocation fails.
+ */
+float* compute_vel_mag(int n, float* d_u, float* d_v, float* d_w) {
+    float* d_velmag = nullptr;
+
+    // 1. Allocate GPU memory for the result vector
+    size_t size = n * sizeof(float);
+    CUDA_CHECK(cudaMalloc((void**)&d_velmag, size));
+
+    // 2. Configure execution parameters
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+
+    // 3. Launch the kernel
+    vel_mag_kernel<<<blocksPerGrid, threadsPerBlock>>>(n, d_u, d_v, d_w, d_velmag);
+    
+    // 4. Check for kernel launch errors
+    CUDA_CHECK(cudaGetLastError());
+    
+    // Return the pointer to the newly allocated memory
+    return d_velmag;
+}
 
 int main()
 {
     // Problem size
-    int xN = 100, yN = 50, zN = 50;
+    int xN = 5, yN = 5, zN = 5;
     // int xN = 100, yN = 2, zN = 2;
     const int nCell = 4 * xN * yN * zN;
 
@@ -2302,7 +2431,17 @@ int main()
      sort_coo_matrix_cusparse(nCell, nCell, nnz, d_rows_coo, d_cols_coo, d_vals_coo);
     // print_coo_matrix_gpu(nCell, nCell, nnz, d_rows_coo, d_cols_coo, d_vals_coo,-1); //Debug
     
-    
+    //-------------------------------------------------------
+    // Compute the norms
+    //-------------------------------------------------------
+        //Create the cublas handle single time
+        cublasHandle_t cublas_handle;
+        CUBLAS_CHECK(cublasCreate(&cublas_handle));
+        float square_norm_var=square_norm(cublas_handle, fold, nCell);
+        float l2_norm=L2_norm_squared(cublas_handle, fold, nCell);
+        std::cout <<"Square Norm: " << square_norm_var << std::endl;
+        std::cout <<"L2 Norm squared: " << l2_norm << std::endl;
+
     //-------------------------------------------------------
     //J^T * J
     //-------------------------------------------------------
@@ -2337,7 +2476,7 @@ int main()
         CUDA_CHECK(cudaMalloc(&d_identity_cols_ptr, nCell * sizeof(int)));
         CUDA_CHECK(cudaMalloc(&d_identity_vals_ptr, nCell * sizeof(float)));
 
-        float lambda_scalar=10e-3;
+        float lambda_scalar=0.01;
 
 
         create_identity_csr_and_scale(nCell, lambda_scalar, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
@@ -2362,83 +2501,104 @@ int main()
         // std::cout << "\n -J^T*r(y)"<<std::endl;
         //  print_gpu_array(rhs, nCell);   //Debug
         
-        //-------------------------------------------------------
-        //Add (J^T * J + λ * I)*delta
-        //-------------------------------------------------------
-            // Outputs 
-            int *d_lhs_rows = nullptr;
-            int *d_lhs_cols = nullptr;
-            float *d_lhs_vals = nullptr;
-            int nnzlhs = 0;
-            
-            float delta=1; //Iteration step
-            
-             int h_last_A, h_last_B;
-            cudaMemcpy(&h_last_A, d_hessian_rows + nCell, sizeof(int), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&h_last_B, d_identity_row_ptr + nCell, sizeof(int), cudaMemcpyDeviceToHost);
-
-            // printf("--- CSR VALIDATION ---\n");
-            // printf("A: m=%d, nnz=%d, LastOffset=%d\n", nCell, hessian_nnz, h_last_A);
-            // printf("B: m=%d, nnz=%d, LastOffset=%d\n", nCell, nCell, h_last_B);
-
-            // if (h_last_B != nCell) {
-            //     printf("ERROR: B is not a valid Identity Row Offset array!\n");
-            // }
-
-            add_csr_cusparse(delta,nCell, nCell, hessian_nnz, d_hessian_rows, d_hessian_cols, 
-                d_hessian_vals, nCell, d_identity_row_ptr,
-                d_identity_cols_ptr, d_identity_vals_ptr, 
-                &nnzlhs, &d_lhs_rows,&d_lhs_cols, &d_lhs_vals);
-            
-           
-            
-            //Free whatever we dont need anymore
-            CUDA_CHECK(cudaFree(d_hessian_rows));
-            CUDA_CHECK(cudaFree(d_hessian_cols));
-            CUDA_CHECK(cudaFree(d_hessian_vals));
+    //-------------------------------------------------------
+    //Add (J^T * J + λ * I)*delta
+    //-------------------------------------------------------
+        // Outputs 
+        int *d_lhs_rows = nullptr;
+        int *d_lhs_cols = nullptr;
+        float *d_lhs_vals = nullptr;
+        int nnzlhs = 0;
         
+        float delta=0.0001; //Iteration step
+        
+            int h_last_A, h_last_B;
+        cudaMemcpy(&h_last_A, d_hessian_rows + nCell, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&h_last_B, d_identity_row_ptr + nCell, sizeof(int), cudaMemcpyDeviceToHost);
 
-            
-            CUDA_CHECK(cudaFree(d_identity_row_ptr));
-            CUDA_CHECK(cudaFree(d_identity_cols_ptr));
-            CUDA_CHECK(cudaFree(d_identity_vals_ptr));
+        // printf("--- CSR VALIDATION ---\n");
+        // printf("A: m=%d, nnz=%d, LastOffset=%d\n", nCell, hessian_nnz, h_last_A);
+        // printf("B: m=%d, nnz=%d, LastOffset=%d\n", nCell, nCell, h_last_B);
 
-            // std::cout << "(J^T * J + λ * I)*delta "<<std::endl;
-            // print_csr_matrix(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, d_lhs_vals);
-            // check_indices_sanity(nnzlhs,nCell,d_lhs_rows);
-            // check_indices_sanity(nnzlhs,nCell,d_lhs_cols);
-            // std::cout << "(J^T * J + λ * I)*delta in CSC format"<<std::endl;
-            // print_csc_matrix(nCell, nCell, d_lhs_cols, d_lhs_rows, d_lhs_vals);
-            
-            
-            
-            //------------------------------------------------------
-            //Solve the system 
-            //------------------------------------------------------
-            //
-                float *d_solution=nullptr;
-                printf("DEBUG: Pointer passed to print: %p\n", (void*)d_lhs_cols);
-                solve_system_gpu(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, 
-                d_lhs_vals, rhs,&d_solution );
-            
-                // print_gpu_array(d_solution, nCell);
-            //
+        // if (h_last_B != nCell) {
+        //     printf("ERROR: B is not a valid Identity Row Offset array!\n");
+        // }
 
-            // Cleanup
-                        
-    CUDA_CHECK(cudaFree(d_lhs_rows));
-    CUDA_CHECK(cudaFree(d_lhs_cols));
-    CUDA_CHECK(cudaFree(d_lhs_vals));
-    CUDA_CHECK(cudaFree(rhs));
-
-
-
-    CUDA_CHECK(cudaFree(d_rows_coo));
-    CUDA_CHECK(cudaFree(d_cols_coo));
-    CUDA_CHECK(cudaFree(d_vals_coo));
-    CUDA_CHECK( cudaFree(d_solution));
+        add_csr_cusparse(delta,nCell, nCell, hessian_nnz, d_hessian_rows, d_hessian_cols, 
+            d_hessian_vals, nCell, d_identity_row_ptr,
+            d_identity_cols_ptr, d_identity_vals_ptr, 
+            &nnzlhs, &d_lhs_rows,&d_lhs_cols, &d_lhs_vals);
+        
+        
+        
+        //Free whatever we dont need anymore
+        CUDA_CHECK(cudaFree(d_hessian_rows));
+        CUDA_CHECK(cudaFree(d_hessian_cols));
+        CUDA_CHECK(cudaFree(d_hessian_vals));
     
-    std::cout << "\nComputation complete!" << std::endl;
+
+        
+        CUDA_CHECK(cudaFree(d_identity_row_ptr));
+        CUDA_CHECK(cudaFree(d_identity_cols_ptr));
+        CUDA_CHECK(cudaFree(d_identity_vals_ptr));
+
+        // std::cout << "(J^T * J + λ * I)*delta "<<std::endl;
+        // print_csr_matrix(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, d_lhs_vals);
+        // check_indices_sanity(nnzlhs,nCell,d_lhs_rows);
+        // check_indices_sanity(nnzlhs,nCell,d_lhs_cols);
+        // std::cout << "(J^T * J + λ * I)*delta in CSC format"<<std::endl;
+        // print_csc_matrix(nCell, nCell, d_lhs_cols, d_lhs_rows, d_lhs_vals);
+        
+        
+        
+    //------------------------------------------------------
+    //Solve the system 
+    //------------------------------------------------------
+    //
+        float *d_solution=nullptr;
+        // printf("DEBUG: Pointer passed to print: %p\n", (void*)d_lhs_cols);
+        solve_system_gpu(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, 
+        d_lhs_vals, rhs,&d_solution );
+    
+        // print_gpu_array(d_solution, nCell);
+        square_norm_var=square_norm(cublas_handle, fold, nCell);
+        std::cout <<"Norm: " << square_norm_var << std::endl;
+        l2_norm=L2_norm_squared(cublas_handle, fold, nCell);
+        std::cout <<"L2 Norm squared: " << l2_norm  << std::endl;
+
+    //
+
+    //------------------------------------------------------
+    //Preprocessing for plots
+    //------------------------------------------------------
+    //
+        auto [d_uvel, d_vvel, d_wvel, d_press]=boundary_conditions_final(d_solution, xN, yN, zN, u_inlet.data());
+        float *d_vel_mag=compute_vel_mag(nCell, d_uvel, d_vvel, d_wvel);
+        print_gpu_array(d_vel_mag,nCell);
+    //
+
+    // Cleanup
+                        
+        CUDA_CHECK(cudaFree(d_lhs_rows));
+        CUDA_CHECK(cudaFree(d_lhs_cols));
+        CUDA_CHECK(cudaFree(d_lhs_vals));
+        CUDA_CHECK(cudaFree(rhs));
+
+
+
+        CUDA_CHECK(cudaFree(d_rows_coo));
+        CUDA_CHECK(cudaFree(d_cols_coo));
+        CUDA_CHECK(cudaFree(d_vals_coo));
+        CUDA_CHECK( cudaFree(d_solution));
+
+        CUBLAS_CHECK(cublasDestroy(cublas_handle));
+
+        CUDA_CHECK( cudaFree(d_uvel));
+        CUDA_CHECK( cudaFree(d_vvel));
+        CUDA_CHECK( cudaFree(d_wvel));
+        CUDA_CHECK( cudaFree(d_press));
+
+        std::cout << "\nComputation complete!" << std::endl;
 
     return 0;
 }
