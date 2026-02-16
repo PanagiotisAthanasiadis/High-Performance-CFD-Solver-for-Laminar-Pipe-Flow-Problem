@@ -8,9 +8,11 @@
  * @copyright Copyright (c) 2026
  * 
  */
+#include <cstddef>
 #include <cstdio>
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
+#include <iomanip>
 #include <iostream>
 #include <vector>
 #include <tuple>
@@ -22,6 +24,10 @@
 #include <cub/cub.cuh>
 #include <cudss.h> 
 #include <cublas_v2.h>
+#include <cnpy.h>
+
+const float C_ONE = 1.0f;
+
 
 
 // ============================================================================ 
@@ -58,6 +64,26 @@ __device__ __host__ inline int idx_3d_batch(int i, int j, int k, int l,
     return ((i * sizeY + j) * sizeZ + k) * grain + l;
 }
 
+
+void print_gpu_array(const float* d_array, int n) {
+    // Allocate host memory to hold the copy
+    std::vector<float> h_array(n);
+
+    // Copy from Device to Host
+    cudaError_t status = cudaMemcpy(h_array.data(), d_array, n * sizeof(float), cudaMemcpyDeviceToHost);
+
+    if (status != cudaSuccess) {
+        printf("Error copying memory: %s\n", cudaGetErrorString(status));
+        return;
+    }
+
+    // Print
+    printf("GPU Array Content: [ ");
+    for (int i = 0; i < n; i++) {
+        printf("%.8f ", h_array[i]);
+    }
+    printf("]\n");
+}
 
 void print_csr_matrix(int rows, int nnz, int* d_row_ptr, int* d_cols, float* d_vals) {
     // Allocate Host Memory
@@ -728,6 +754,8 @@ std::tuple<float*,float*,float*,float*> boundary_conditions_final(float *ysol,
     CUDA_CHECK(cudaFree(d_u_inlet));
     CUDA_CHECK(cudaFree(ysol));
 
+    // print_gpu_array(ud, totalSize);
+
     return {ud,vd,wd,pd};
 }
 
@@ -934,14 +962,14 @@ Residuals_Sparse_Jacobian_finite_diff(
             int ysol_blocks = (nCell + ysol_threads - 1) / ysol_threads;
             build_ysol_batch_kernel<<<ysol_blocks, ysol_threads, 0, stream>>>(
                 d_ysol, hd, d_ysol_batch, nCell, current_grain, d_t_batch);
-            CUDA_CHECK(cudaGetLastError());
+            // CUDA_CHECK(cudaGetLastError());
 
             int nc = xN * yN * zN;
             int threads = 256; //Prefer 1d for better coalesced memory access
             int blocks = (nc + threads - 1) / threads;
             boundary_conditions_initialization<<<blocks, threads, 0, stream>>>(
             d_ysol_batch, ud, vd, wd, pd, xN, yN, zN, current_grain);
-            CUDA_CHECK(cudaGetLastError());
+            // CUDA_CHECK(cudaGetLastError());
 
             dim3 blk(8, 8, 4);
             dim3 grd((sizeX + blk.x - 1) / blk.x,
@@ -949,7 +977,7 @@ Residuals_Sparse_Jacobian_finite_diff(
                     (sizeZ + blk.z - 1) / blk.z);
             boundary_conditions_apply<<<grd, blk, 0, stream>>>(
                 d_u_inlet, ud, vd, wd, pd, xN, yN, zN, current_grain);
-            CUDA_CHECK(cudaGetLastError());
+            // CUDA_CHECK(cudaGetLastError());
 
             dim3 t(8, 8, 4);
             dim3 bks((xN + t.x - 1) / t.x,
@@ -959,22 +987,22 @@ Residuals_Sparse_Jacobian_finite_diff(
             kernel_u_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
-            CUDA_CHECK(cudaGetLastError());
+            // CUDA_CHECK(cudaGetLastError());
 
             kernel_v_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
-            CUDA_CHECK(cudaGetLastError());
+            // CUDA_CHECK(cudaGetLastError());
 
             kernel_w_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
-            CUDA_CHECK(cudaGetLastError());
+            // CUDA_CHECK(cudaGetLastError());
 
             kernel_continuity<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, wd, xN, yN, zN,
                 dx, dy, dz, sizeY, sizeZ);
-            CUDA_CHECK(cudaGetLastError());
+            // CUDA_CHECK(cudaGetLastError());
             // ================================================================
 
             dim3 tt(32, 4);
@@ -985,7 +1013,7 @@ Residuals_Sparse_Jacobian_finite_diff(
                 d_all_rows, d_all_cols, d_all_vals,
                 d_global_counter,
                 nCell, current_grain, start);
-            CUDA_CHECK(cudaGetLastError());
+            // CUDA_CHECK(cudaGetLastError());
             
             int total_attempted_nnz;
             cudaMemcpy(&total_attempted_nnz, d_global_counter, sizeof(int), cudaMemcpyDeviceToHost);
@@ -1000,6 +1028,7 @@ Residuals_Sparse_Jacobian_finite_diff(
         }
     
         CUDA_CHECK(cudaStreamSynchronize(stream));
+        CUDA_CHECK(cudaGetLastError()); //Check once after synchronize
         CUDA_CHECK(cudaFree(dev_out));
         CUDA_CHECK(cudaFree(ud));
         CUDA_CHECK(cudaFree(vd));
@@ -1880,25 +1909,7 @@ void scale_and_multiply_on_gpu(
     CUSPARSE_CHECK( cusparseDestroy(handle) );
 }
 
-void print_gpu_array(const float* d_array, int n) {
-    // Allocate host memory to hold the copy
-    std::vector<float> h_array(n);
 
-    // Copy from Device to Host
-    cudaError_t status = cudaMemcpy(h_array.data(), d_array, n * sizeof(float), cudaMemcpyDeviceToHost);
-
-    if (status != cudaSuccess) {
-        printf("Error copying memory: %s\n", cudaGetErrorString(status));
-        return;
-    }
-
-    // Print
-    printf("GPU Array Content: [ ");
-    for (int i = 0; i < n; i++) {
-        printf("%.8f ", h_array[i]);
-    }
-    printf("]\n");
-}
 
 
 
@@ -2330,7 +2341,7 @@ float* compute_vel_mag(int n, float* d_u, float* d_v, float* d_w) {
     // 2. Configure execution parameters
     int threadsPerBlock = 256;
     int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
-
+    // print_gpu_array(d_u, n);
     // 3. Launch the kernel
     vel_mag_kernel<<<blocksPerGrid, threadsPerBlock>>>(n, d_u, d_v, d_w, d_velmag);
     
@@ -2339,6 +2350,147 @@ float* compute_vel_mag(int n, float* d_u, float* d_v, float* d_w) {
     
     // Return the pointer to the newly allocated memory
     return d_velmag;
+}
+
+/**
+ * @brief Transfers data from a GPU device array to a host std::vector.
+ * * This function minimizes overhead by pre-allocating the vector and
+ * using Move Semantics on the return. 
+ *
+ * @param d_ptr Pointer to the source data in GPU memory.
+ * @param n     Number of elements (not bytes) to copy.
+ * @return std::vector<float> The populated host vector.
+ */
+std::vector<float> copy_gpu_array_host(const float* d_ptr, int n) {
+    // 1. Create the vector and reserve/resize immediately.
+    std::vector<float> h_vec(n);
+
+    // 2. Perform a single direct copy from Device to Host.
+    CUDA_CHECK(cudaMemcpy(h_vec.data(), d_ptr, n * sizeof(float), cudaMemcpyDeviceToHost));
+
+    // 3. Return by value. 
+    // Modern C++ (C++11 and later) uses "Move Semantics." 
+    // The vector's internal pointer is handed over to the caller 
+    // rather than copying the whole array again.
+    return h_vec;
+}
+
+
+void levenberg_marquardt_solver(
+    float Re,
+    std::vector<float>& y,
+    const int xN, const int yN, const int zN,
+    const float* u_inlet,
+    const float dx, const float dy, const float dz,
+    int max_iterations = 10
+) {
+    const int nCell = 4 * xN * yN * zN;
+    int sizeX = xN + 2;
+    const int sizeY = yN + 2;
+    const int sizeZ = zN + 2;
+
+    auto [fold, sparse_matrix] = Residuals_Sparse_Jacobian_finite_diff(
+        Re, y.data(), xN, yN, zN, u_inlet, dx, dy, dz);
+    
+    auto [d_rows_coo, d_cols_coo, d_vals_coo, nnz] = sparse_matrix;
+
+    
+    std::cout << "Sparse matrix: " << nnz << " non-zeros" << std::endl;
+    std::cout << "Sparsity: " << (100.0 * nnz / ((long long)nCell * nCell)) << "%" << std::endl;
+    
+     sort_coo_matrix_cusparse(nCell, nCell, nnz, d_rows_coo, d_cols_coo, d_vals_coo);
+    
+    //-------------------------------------------------------
+    // Compute the norms
+    //-------------------------------------------------------
+        //Create the cublas handle single time
+        cublasHandle_t cublas_handle;
+        CUBLAS_CHECK(cublasCreate(&cublas_handle));
+        float square_norm_var=square_norm(cublas_handle, fold, nCell);
+        float l2_norm=L2_norm_squared(cublas_handle, fold, nCell);
+        std::cout <<"Square Norm: " << square_norm_var << std::endl;
+        std::cout <<"L2 Norm squared: " << l2_norm << std::endl;
+
+    //-------------------------------------------------------
+    //J^T * J
+    //-------------------------------------------------------
+        // Result pointers
+        int *d_hessian_rows, *d_hessian_cols;
+        float *d_hessian_vals;
+        int hessian_nnz;
+        //Transpose jacobian pointers into CSC form
+        int *d_AT_cscOffsets, *d_AT_columns;
+        float *d_AT_values;
+
+        compute_AtA_debug(d_rows_coo, d_cols_coo, d_vals_coo, nnz, 
+                        nCell, nCell,
+                        &d_hessian_rows, &d_hessian_cols, &d_hessian_vals,
+                        &hessian_nnz,&d_AT_cscOffsets, 
+                        &d_AT_columns,&d_AT_values);
+    //-------------------------------------------------------
+    // λ * I
+    //-------------------------------------------------------
+        int *d_identity_row_ptr, *d_identity_cols_ptr;
+        float *d_identity_vals_ptr;
+        
+        // Allocate Device Memory for identity matrix (CSR form)
+        CUDA_CHECK(cudaMalloc(&d_identity_row_ptr, (nCell + 1) * sizeof(int)));
+        CUDA_CHECK(cudaMalloc(&d_identity_cols_ptr, nCell * sizeof(int)));
+        CUDA_CHECK(cudaMalloc(&d_identity_vals_ptr, nCell * sizeof(float)));
+
+        float lambda_scalar=0.01;
+
+
+        create_identity_csr_and_scale(nCell, lambda_scalar, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
+        
+    //-------------------------------------------------------
+    //-J^T*r(y)(right hand side )
+    //-------------------------------------------------------
+        float *rhs=nullptr;
+        scale_and_multiply_on_gpu(nCell, nCell, nnz, d_AT_cscOffsets, 
+            d_AT_columns, d_AT_values, fold, -1, &rhs);
+        
+        CUDA_CHECK(cudaFree(fold));
+        CUDA_CHECK(cudaFree(d_AT_cscOffsets));
+        CUDA_CHECK(cudaFree(d_AT_columns));
+        CUDA_CHECK(cudaFree(d_AT_values));
+        
+    //-------------------------------------------------------
+    //Add (J^T * J + λ * I)*delta
+    //-------------------------------------------------------
+        // Outputs 
+        int *d_lhs_rows = nullptr;
+        int *d_lhs_cols = nullptr;
+        float *d_lhs_vals = nullptr;
+        int nnzlhs = 0;
+        
+        float delta=0.0001; //Iteration step
+        
+        add_csr_cusparse(delta,nCell, nCell, hessian_nnz, d_hessian_rows, d_hessian_cols, 
+            d_hessian_vals, nCell, d_identity_row_ptr,
+            d_identity_cols_ptr, d_identity_vals_ptr, 
+            &nnzlhs, &d_lhs_rows,&d_lhs_cols, &d_lhs_vals);
+        
+        //Free whatever we dont need anymore
+        CUDA_CHECK(cudaFree(d_hessian_rows));
+        CUDA_CHECK(cudaFree(d_hessian_cols));
+        CUDA_CHECK(cudaFree(d_hessian_vals));
+    
+        CUDA_CHECK(cudaFree(d_identity_row_ptr));
+        CUDA_CHECK(cudaFree(d_identity_cols_ptr));
+        CUDA_CHECK(cudaFree(d_identity_vals_ptr));
+        
+    //------------------------------------------------------
+    //Solve the system 
+    //------------------------------------------------------
+        float *d_solution=nullptr;
+        solve_system_gpu(nCell, nnzlhs, d_lhs_rows, d_lhs_cols, 
+        d_lhs_vals, rhs,&d_solution );
+    
+        square_norm_var=square_norm(cublas_handle, fold, nCell);
+        std::cout <<"Norm: " << square_norm_var << std::endl;
+        l2_norm=L2_norm_squared(cublas_handle, fold, nCell);
+        std::cout <<"L2 Norm squared: " << l2_norm  << std::endl;
 }
 
 int main()
@@ -2476,7 +2628,7 @@ int main()
         CUDA_CHECK(cudaMalloc(&d_identity_cols_ptr, nCell * sizeof(int)));
         CUDA_CHECK(cudaMalloc(&d_identity_vals_ptr, nCell * sizeof(float)));
 
-        float lambda_scalar=0.01;
+        float lambda_scalar=10e-3;
 
 
         create_identity_csr_and_scale(nCell, lambda_scalar, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
@@ -2510,7 +2662,7 @@ int main()
         float *d_lhs_vals = nullptr;
         int nnzlhs = 0;
         
-        float delta=0.0001; //Iteration step
+        float delta=0.01; //Iteration step
         
             int h_last_A, h_last_B;
         cudaMemcpy(&h_last_A, d_hessian_rows + nCell, sizeof(int), cudaMemcpyDeviceToHost);
@@ -2561,10 +2713,11 @@ int main()
         d_lhs_vals, rhs,&d_solution );
     
         // print_gpu_array(d_solution, nCell);
-        square_norm_var=square_norm(cublas_handle, fold, nCell);
-        std::cout <<"Norm: " << square_norm_var << std::endl;
-        l2_norm=L2_norm_squared(cublas_handle, fold, nCell);
-        std::cout <<"L2 Norm squared: " << l2_norm  << std::endl;
+        // auto h_solution= copy_gpu_array_host(d_solution,nCell);
+        square_norm_var=square_norm(cublas_handle, d_solution, nCell);
+        std::cout <<"Norm: "<< std::setprecision(8) << square_norm_var << std::endl;
+        l2_norm=L2_norm_squared(cublas_handle, d_solution, nCell);
+        std::cout <<"L2 Norm squared: "<< std::setprecision(8) << l2_norm  << std::endl;
 
     //
 
@@ -2573,9 +2726,36 @@ int main()
     //------------------------------------------------------
     //
         auto [d_uvel, d_vvel, d_wvel, d_press]=boundary_conditions_final(d_solution, xN, yN, zN, u_inlet.data());
-        float *d_vel_mag=compute_vel_mag(nCell, d_uvel, d_vvel, d_wvel);
-        print_gpu_array(d_vel_mag,nCell);
-    //
+        int total_size = sizeX * sizeY * sizeZ;
+
+        float *d_vel_mag=compute_vel_mag(total_size, d_uvel, d_vvel, d_wvel);
+        // print_gpu_array(d_vel_mag,total_size);
+        //Copy back to host
+        // print_gpu_array(d_uvel, total_size);
+        auto [h_uvel,h_vvel,h_wvel,h_pres,h_vel_mag] = std::make_tuple(copy_gpu_array_host(d_uvel,total_size),copy_gpu_array_host(d_vvel,total_size),
+            copy_gpu_array_host(d_wvel,total_size),copy_gpu_array_host(d_press,total_size),copy_gpu_array_host(d_vel_mag,total_size));
+
+        //Export them into nnz format for plotting in python with matplotlib
+        cnpy::npz_save("simulation_results.npz", "u", h_uvel.data(), {static_cast<size_t>(sizeX),static_cast<size_t>(sizeY),static_cast<size_t>(sizeZ)}, "w");
+        cnpy::npz_save("simulation_results.npz", "v", h_vvel.data(), {static_cast<size_t>(sizeX),static_cast<size_t>(sizeY),static_cast<size_t>(sizeZ)}, "a");
+        cnpy::npz_save("simulation_results.npz", "w", h_wvel.data(), {static_cast<size_t>(sizeX),static_cast<size_t>(sizeY),static_cast<size_t>(sizeZ)}, "a");
+        cnpy::npz_save("simulation_results.npz", "p", h_pres.data(), {static_cast<size_t>(sizeX),static_cast<size_t>(sizeY),static_cast<size_t>(sizeZ)}, "a");
+        
+        cnpy::npz_save("simulation_results.npz", "velmag", h_vel_mag.data(), {static_cast<size_t>(sizeX),static_cast<size_t>(sizeY),static_cast<size_t>(sizeZ)}, "a");
+        
+        cnpy::npz_save("simulation_results.npz", "xcoor", xcoor.data(), {static_cast<size_t>(sizeX),static_cast<size_t>(sizeY),static_cast<size_t>(sizeZ)}, "a");
+        cnpy::npz_save("simulation_results.npz", "ycoor", ycoor.data(), {static_cast<size_t>(sizeX),static_cast<size_t>(sizeY),static_cast<size_t>(sizeZ)}, "a");
+        cnpy::npz_save("simulation_results.npz", "zcoor", zcoor.data(), {static_cast<size_t>(sizeX),static_cast<size_t>(sizeY),static_cast<size_t>(sizeZ)}, "a");
+        
+        cnpy::npz_save("simulation_results.npz", "xN", &xN, {1}, "a");
+        cnpy::npz_save("simulation_results.npz", "yN", &yN, {1}, "a");
+        cnpy::npz_save("simulation_results.npz", "zN", &zN, {1}, "a");
+
+        cnpy::npz_save("simulation_results.npz", "L", &L, {1}, "a");
+        cnpy::npz_save("simulation_results.npz", "M", &M, {1}, "a");
+        cnpy::npz_save("simulation_results.npz", "N", &N, {1}, "a");
+
+        //
 
     // Cleanup
                         
