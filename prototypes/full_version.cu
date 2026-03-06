@@ -62,12 +62,12 @@ __device__ __host__ inline int idx_3d_batch(int i, int j, int k, int l,
 }
 
 
-void print_gpu_array(const float* d_array, int n) {
+void print_gpu_array(const double* d_array, int n) {
     // Allocate host memory to hold the copy
-    std::vector<float> h_array(n);
+    std::vector<double> h_array(n);
 
     // Copy from Device to Host
-    cudaError_t status = cudaMemcpy(h_array.data(), d_array, n * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaError_t status = cudaMemcpy(h_array.data(), d_array, n * sizeof(double), cudaMemcpyDeviceToHost);
 
     if (status != cudaSuccess) {
         printf("Error copying memory: %s\n", cudaGetErrorString(status));
@@ -82,16 +82,16 @@ void print_gpu_array(const float* d_array, int n) {
     printf("]\n");
 }
 
-void print_csr_matrix(int rows, int nnz, int* d_row_ptr, int* d_cols, float* d_vals) {
+void print_csr_matrix(int rows, int nnz, int* d_row_ptr, int* d_cols, double* d_vals) {
     // Allocate Host Memory
     int* h_row_ptr = (int*)malloc((rows + 1) * sizeof(int));
     int* h_cols    = (int*)malloc(nnz * sizeof(int));
-    float* h_vals  = (float*)malloc(nnz * sizeof(float));
+    double* h_vals  = (double*)malloc(nnz * sizeof(double));
 
     // Copy from Device to Host
     CUDA_CHECK(cudaMemcpy(h_row_ptr, d_row_ptr, (rows + 1) * sizeof(int), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(h_cols, d_cols, nnz * sizeof(int), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_vals, d_vals, nnz * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_vals, d_vals, nnz * sizeof(double), cudaMemcpyDeviceToHost));
 
     printf("\n--- Matrix Print (First 10 Rows) ---\n");
     printf("Format: Row [Start, End) -> (Col, Val)\n");
@@ -141,18 +141,18 @@ void print_csr_matrix(int rows, int nnz, int* d_row_ptr, int* d_cols, float* d_v
 void print_coo_matrix_gpu(int rows, int cols, int nnz, 
                           const int* d_rows, 
                           const int* d_cols, 
-                          const float* d_vals,
+                          const double* d_vals,
                           int max_print = 20) 
 {
     // 1. Allocate Host Memory
     std::vector<int> h_rows(nnz);
     std::vector<int> h_cols(nnz);
-    std::vector<float> h_vals(nnz);
+    std::vector<double> h_vals(nnz);
 
     // 2. Copy Data from Device to Host
     cudaMemcpy(h_rows.data(), d_rows, nnz * sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_cols.data(), d_cols, nnz * sizeof(int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_vals.data(), d_vals, nnz * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_vals.data(), d_vals, nnz * sizeof(double), cudaMemcpyDeviceToHost);
 
     // 3. Print Header
     std::cout << "--- COO Matrix (GPU) ---" << std::endl;
@@ -182,9 +182,9 @@ void print_coo_matrix_gpu(int rows, int cols, int nnz,
 // ============================================================================
 
 __global__ void build_ysol_batch_kernel(
-    const float* __restrict__ y,
-    const float* __restrict__ h,
-    float* __restrict__ ysol_batch,
+    const double* __restrict__ y,
+    const double* __restrict__ h,
+    double* __restrict__ ysol_batch,
     const int nCell,
     const int grain,
     const int* __restrict__ t_batch)
@@ -212,11 +212,11 @@ __global__ void build_ysol_batch_kernel(
 
 __global__ void 
 boundary_conditions_initialization(
-    const float* __restrict__ ysol_local_batch,
-    float* __restrict__ u,
-    float* __restrict__ v,
-    float* __restrict__ w,
-    float* __restrict__ p,
+    const double* __restrict__ ysol_local_batch,
+    double* __restrict__ u,
+    double* __restrict__ v,
+    double* __restrict__ w,
+    double* __restrict__ p,
     const int xN, const int yN, const int zN,
     const int grain)
 {
@@ -257,11 +257,11 @@ boundary_conditions_initialization(
 // ============================================================================
 
 __global__ void boundary_conditions_apply(
-    const float* __restrict__ u_inlet,
-    float* __restrict__ u,
-    float* __restrict__ v,
-    float* __restrict__ w,
-    float* __restrict__ p,
+    const double* __restrict__ u_inlet,
+    double* __restrict__ u,
+    double* __restrict__ v,
+    double* __restrict__ w,
+    double* __restrict__ p,
     const int xN, const int yN, const int zN,
     const int grain)
 {
@@ -286,6 +286,11 @@ __global__ void boundary_conditions_apply(
             p[idx_3d_batch(i, yN + 1, k, l, sizeY, sizeZ, grain)] = 
                 p[idx_3d_batch(i, yN, k, l, sizeY, sizeZ, grain)];
         }
+        if (j == 0 || j == yN + 1) {
+          u[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
+          v[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
+          w[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
+        }
 
         // Z-direction boundaries
         if (k == 0) {
@@ -296,12 +301,22 @@ __global__ void boundary_conditions_apply(
                 p[idx_3d_batch(i, j, zN, l, sizeY, sizeZ, grain)];
         }
 
+        if (k == 0 || k == zN + 1  && i > 0 && i < xN + 1) {
+          u[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
+          v[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
+          w[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
+        }
+
         // X-direction boundaries
         if (i == 0) {
-            u[idx_3d_batch(0, j, k, l, sizeY, sizeZ, grain)] = 
-                u_inlet[idx_3d(j, k, 0, sizeZ, 1)];
+             u[idx_3d_batch(0, j, k, l, sizeY, sizeZ, grain)] = 
+                 u_inlet[idx_3d(j, k, 0, sizeZ, 1)];
+        //    u_inlet[idx_3d_batch(j, k, 0, l, sizeZ, 1, grain)];
             p[idx_3d_batch(0, j, k, l, sizeY, sizeZ, grain)] = 
                 p[idx_3d_batch(1, j, k, l, sizeY, sizeZ, grain)];
+            v[idx_3d_batch(0, j, k, l, sizeY, sizeZ, grain)] = 0.0;         
+            w[idx_3d_batch(0, j, k, l, sizeY, sizeZ, grain)] = 0.0;         
+
         } else if (i == xN + 1) {
             u[idx_3d_batch(xN + 1, j, k, l, sizeY, sizeZ, grain)] = 
                 u[idx_3d_batch(xN, j, k, l, sizeY, sizeZ, grain)];
@@ -309,6 +324,7 @@ __global__ void boundary_conditions_apply(
                 v[idx_3d_batch(xN, j, k, l, sizeY, sizeZ, grain)];
             w[idx_3d_batch(xN + 1, j, k, l, sizeY, sizeZ, grain)] = 
                 w[idx_3d_batch(xN, j, k, l, sizeY, sizeZ, grain)];
+            p[idx_3d_batch(xN + 1, j, k, l, sizeY, sizeZ, grain)] = 0.0;
         }
     }
 }
@@ -320,11 +336,11 @@ __global__ void boundary_conditions_apply(
 // ============================================================================
 
 __global__ void boundary_conditions_initialization_single(
-    const float* __restrict__ ysol,
-    float* __restrict__ u,
-    float* __restrict__ v,
-    float* __restrict__ w,
-    float* __restrict__ p,
+    const double* __restrict__ ysol,
+    double* __restrict__ u,
+    double* __restrict__ v,
+    double* __restrict__ w,
+    double* __restrict__ p,
     const int xN, const int yN, const int zN)
 {
     const int sizeY = yN + 2;
@@ -350,11 +366,11 @@ __global__ void boundary_conditions_initialization_single(
 // ============================================================================
 
 __global__ void boundary_conditions_apply_single(
-    const float* __restrict__ u_inlet,
-    float* __restrict__ u,
-    float* __restrict__ v,
-    float* __restrict__ w,
-    float* __restrict__ p,
+    const double* __restrict__ u_inlet,
+    double* __restrict__ u,
+    double* __restrict__ v,
+    double* __restrict__ w,
+    double* __restrict__ p,
     const int xN, const int yN, const int zN)
 {
     const int sizeX = xN + 2;
@@ -374,6 +390,12 @@ __global__ void boundary_conditions_apply_single(
         p[idx_3d(i, yN + 1, k, sizeY, sizeZ)] = p[idx_3d(i, yN, k, sizeY, sizeZ)];
     }
 
+    if (j == 0 || j == yN + 1 && i > 0 && i < xN + 1) {
+        u[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
+        v[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
+        w[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
+    }
+
     // Z-direction boundaries
     if (k == 0) {
         p[idx_3d(i, j, 0, sizeY, sizeZ)] = p[idx_3d(i, j, 1, sizeY, sizeZ)];
@@ -381,15 +403,25 @@ __global__ void boundary_conditions_apply_single(
         p[idx_3d(i, j, zN + 1, sizeY, sizeZ)] = p[idx_3d(i, j, zN, sizeY, sizeZ)];
     }
 
+    if (k == 0 || k == zN + 1  && i > 0 && i < xN + 1) {
+        u[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
+        v[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
+        w[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
+    }
+
     // X-direction boundaries
     if (i == 0) {
         u[idx_3d(0, j, k, sizeY, sizeZ)] = u_inlet[idx_3d(j, k, 0, sizeZ, 1)];
         p[idx_3d(0, j, k, sizeY, sizeZ)] = p[idx_3d(1, j, k, sizeY, sizeZ)];
+        v[idx_3d(0, j, k, sizeY, sizeZ)] = 0.0;         
+        w[idx_3d(0, j, k, sizeY, sizeZ)] = 0.0;  
     } else if (i == xN + 1) {
         u[idx_3d(xN + 1, j, k, sizeY, sizeZ)] = u[idx_3d(xN, j, k, sizeY, sizeZ)];
         v[idx_3d(xN + 1, j, k, sizeY, sizeZ)] = v[idx_3d(xN, j, k, sizeY, sizeZ)];
         w[idx_3d(xN + 1, j, k, sizeY, sizeZ)] = w[idx_3d(xN, j, k, sizeY, sizeZ)];
+        p[idx_3d(xN + 1, j, k, sizeY, sizeZ)] = 0.0;
     }
+
 }
 
 // ============================================================================
@@ -397,11 +429,11 @@ __global__ void boundary_conditions_apply_single(
 // ============================================================================
 
 __global__ void kernel_uv_velocity_single(
-    float* __restrict__ out, float Re,
-    float* __restrict__ u, float* __restrict__ v,
-    float* __restrict__ p, float* __restrict__ w,
+    double* __restrict__ out, double Re,
+    double* __restrict__ u, double* __restrict__ v,
+    double* __restrict__ p, double* __restrict__ w,
     const int xN, const int yN, const int zN,
-    const float dx, const float dy, const float dz)
+    const double dx, const double dy, const double dz)
 {
     int sizeY = yN + 2;
     int sizeZ = zN + 2;
@@ -422,18 +454,19 @@ __global__ void kernel_uv_velocity_single(
 
     // U-momentum
     {
-        float conv_x = 0.5f * dy * dz * (u[idx(i+1,j,k)]*u[idx(i+1,j,k)] - 
+        double conv_x = 0.5 * dy * dz * (u[idx(i+1,j,k)]*u[idx(i+1,j,k)] - 
                                          u[idx(i-1,j,k)]*u[idx(i-1,j,k)]);
-        float conv_y = 0.5f * dx * dz * (u[idx(i,j+1,k)]*v[idx(i,j+1,k)] - 
+        double conv_y = 0.5 * dx * dz * (u[idx(i,j+1,k)]*v[idx(i,j+1,k)] - 
                                          u[idx(i,j-1,k)]*v[idx(i,j-1,k)]);
-        float conv_z = 0.5f * dx * dy * (u[idx(i,j,k+1)]*w[idx(i,j,k+1)] - 
+        double conv_z = 0.5 * dx * dy * (u[idx(i,j,k+1)]*w[idx(i,j,k+1)] - 
                                          u[idx(i,j,k-1)]*w[idx(i,j,k-1)]);
-        float pres = (dy * dz) * (p[idx(i+1,j,k)] - p[idx(i,j,k)]);
+        // double pres = (dy * dz) * (p[idx(i+1,j,k)] - p[idx(i,j,k)]);
+        double pres = (dy * dz / 2.0) * (p[idx(i+1,j,k)] - p[idx(i-1,j,k)]);
 
-        float diff = (1.0f/Re) * (
-            (dy*dz/dx) * (u[idx(i+1,j,k)] - 2.0f*u[idx(i,j,k)] + u[idx(i-1,j,k)]) +
-            (dx*dz/dy) * (u[idx(i,j+1,k)] - 2.0f*u[idx(i,j,k)] + u[idx(i,j-1,k)]) +
-            (dx*dy/dz) * (u[idx(i,j,k+1)] - 2.0f*u[idx(i,j,k)] + u[idx(i,j,k-1)])
+        double diff = (1.0/Re) * (
+            (dy*dz/dx) * (u[idx(i+1,j,k)] - 2.0*u[idx(i,j,k)] + u[idx(i-1,j,k)]) +
+            (dx*dz/dy) * (u[idx(i,j+1,k)] - 2.0*u[idx(i,j,k)] + u[idx(i,j-1,k)]) +
+            (dx*dy/dz) * (u[idx(i,j,k+1)] - 2.0*u[idx(i,j,k)] + u[idx(i,j,k-1)])
         );
 
         out[pos] = conv_x + conv_y + conv_z + pres - diff;
@@ -441,18 +474,19 @@ __global__ void kernel_uv_velocity_single(
 
     // V-momentum
     {
-        float conv_x = 0.5f * dy * dz * (u[idx(i+1,j,k)]*v[idx(i+1,j,k)] - 
+        double conv_x = 0.5 * dy * dz * (u[idx(i+1,j,k)]*v[idx(i+1,j,k)] - 
                                          u[idx(i-1,j,k)]*v[idx(i-1,j,k)]);
-        float conv_y = 0.5f * dx * dz * (v[idx(i,j+1,k)]*v[idx(i,j+1,k)] - 
+        double conv_y = 0.5 * dx * dz * (v[idx(i,j+1,k)]*v[idx(i,j+1,k)] - 
                                          v[idx(i,j-1,k)]*v[idx(i,j-1,k)]);
-        float conv_z = 0.5f * dx * dy * (v[idx(i,j,k+1)]*w[idx(i,j,k+1)] - 
+        double conv_z = 0.5 * dx * dy * (v[idx(i,j,k+1)]*w[idx(i,j,k+1)] - 
                                          v[idx(i,j,k-1)]*w[idx(i,j,k-1)]);
-        float pres = (dx * dz) * (p[idx(i,j+1,k)] - p[idx(i,j,k)]);
+        // double pres = (dx * dz) * (p[idx(i,j+1,k)] - p[idx(i,j,k)]);
+        double pres = (dx * dz / 2.0) * (p[idx(i,j+1,k)] - p[idx(i,j-1,k)]);
 
-        float diff = (1.0f/Re) * (
-            (dy*dz/dx) * (v[idx(i+1,j,k)] - 2.0f*v[idx(i,j,k)] + v[idx(i-1,j,k)]) +
-            (dx*dz/dy) * (v[idx(i,j+1,k)] - 2.0f*v[idx(i,j,k)] + v[idx(i,j-1,k)]) +
-            (dx*dy/dz) * (v[idx(i,j,k+1)] - 2.0f*v[idx(i,j,k)] + v[idx(i,j,k-1)])
+        double diff = (1.0/Re) * (
+            (dy*dz/dx) * (v[idx(i+1,j,k)] - 2.0*v[idx(i,j,k)] + v[idx(i-1,j,k)]) +
+            (dx*dz/dy) * (v[idx(i,j+1,k)] - 2.0*v[idx(i,j,k)] + v[idx(i,j-1,k)]) +
+            (dx*dy/dz) * (v[idx(i,j,k+1)] - 2.0*v[idx(i,j,k)] + v[idx(i,j,k-1)])
         );
 
         out[nCell + pos] = conv_x + conv_y + conv_z + pres - diff;
@@ -460,18 +494,20 @@ __global__ void kernel_uv_velocity_single(
 
     // W-momentum
     {
-        float conv_x = 0.5f * dy * dz * (u[idx(i+1,j,k)]*w[idx(i+1,j,k)] - 
+        double conv_x = 0.5 * dy * dz * (u[idx(i+1,j,k)]*w[idx(i+1,j,k)] - 
                                          u[idx(i-1,j,k)]*w[idx(i-1,j,k)]);
-        float conv_y = 0.5f * dx * dz * (v[idx(i,j+1,k)]*w[idx(i,j+1,k)] - 
+        double conv_y = 0.5 * dx * dz * (v[idx(i,j+1,k)]*w[idx(i,j+1,k)] - 
                                          v[idx(i,j-1,k)]*w[idx(i,j-1,k)]);
-        float conv_z = 0.5f * dx * dy * (w[idx(i,j,k+1)]*w[idx(i,j,k+1)] - 
+        double conv_z = 0.5 * dx * dy * (w[idx(i,j,k+1)]*w[idx(i,j,k+1)] - 
                                          w[idx(i,j,k-1)]*w[idx(i,j,k-1)]);
-        float pres = (dx * dy) * (p[idx(i,j,k+1)] - p[idx(i,j,k)]);
+        // double pres = (dx * dy) * (p[idx(i,j,k+1)] - p[idx(i,j,k)]);
 
-        float diff = (1.0f/Re) * (
-            (dy*dz/dx) * (w[idx(i+1,j,k)] - 2.0f*w[idx(i,j,k)] + w[idx(i-1,j,k)]) +
-            (dx*dz/dy) * (w[idx(i,j+1,k)] - 2.0f*w[idx(i,j,k)] + w[idx(i,j-1,k)]) +
-            (dx*dy/dz) * (w[idx(i,j,k+1)] - 2.0f*w[idx(i,j,k)] + w[idx(i,j,k-1)])
+        double pres = (dx * dy / 2.0) * (p[idx(i,j,k+1)] - p[idx(i,j,k-1)]);
+
+        double diff = (1.0/Re) * (
+            (dy*dz/dx) * (w[idx(i+1,j,k)] - 2.0*w[idx(i,j,k)] + w[idx(i-1,j,k)]) +
+            (dx*dz/dy) * (w[idx(i,j+1,k)] - 2.0*w[idx(i,j,k)] + w[idx(i,j-1,k)]) +
+            (dx*dy/dz) * (w[idx(i,j,k+1)] - 2.0*w[idx(i,j,k)] + w[idx(i,j,k-1)])
         );
 
         out[2*nCell + pos] = conv_x + conv_y + conv_z + pres - diff;
@@ -479,25 +515,37 @@ __global__ void kernel_uv_velocity_single(
 
     // Continuity
     {
-        float cont = (dy*dz/2.0f) * (u[idx(i+1,j,k)] - u[idx(i-1,j,k)]) +
-                    (dx*dz/2.0f) * (v[idx(i,j+1,k)] - v[idx(i,j-1,k)]) +
-                    (dx*dy/2.0f) * (w[idx(i,j,k+1)] - w[idx(i,j,k-1)]);
+        double cont = (dy*dz/2.0) * (u[idx(i+1,j,k)] - u[idx(i-1,j,k)]) +
+                    (dx*dz/2.0) * (v[idx(i,j+1,k)] - v[idx(i,j-1,k)]) +
+                    (dx*dy/2.0) * (w[idx(i,j,k+1)] - w[idx(i,j,k-1)]);
 
         out[3*nCell + pos] = cont;
     }
 }
 
+__device__ bool check_equal(double a, double b, double epsilon) {
+    double diff = fabs(a - b);
+    
+    // 2. Handle the "Zero" edge case
+    // If a and b are effectively zero, the relative error check below 
+    // might fail (0/0)
+    if (a == b || diff < epsilon) {
+        return true;
+    }
+
+    return diff < (epsilon * fmax(fabs(a), fabs(b)));
+}
 
 // ============================================================================
 // HOST FUNCTION: RESIDUALS AND SPARSE JACOBIAN
 // ============================================================================
 __global__ void build_jacobian_entries(
-    const float* __restrict__ out,
-    const float* __restrict__ fold,
-    const float* __restrict__ h,
+    const double* __restrict__ out,
+    const double* __restrict__ fold,
+    const double* __restrict__ h,
     int* __restrict__ row_idx,
     int* __restrict__ col_idx,
-    float* __restrict__ values,
+    double* __restrict__ values,
     int* __restrict__ counter,
     const int nCell, const int grain, const int start)
 {
@@ -508,9 +556,10 @@ __global__ void build_jacobian_entries(
     
     int idx = g * nCell + i;
     int batch_step = g + start;
-    float df = (out[idx] - fold[i]) / h[batch_step];
+    double df = (out[idx] - fold[i]) / h[batch_step];
     
-    if (fabsf(df) > 1e-8f) {
+    if (fabs(df) > 1e-14) {
+    // if (!check_equal(df, 0, 1e-10)) {
         int pos = atomicAdd(counter, 1);    
         // printf("%d %d %f %d\n ",i,batch_step,df);
         row_idx[pos] = i;              // Row index
@@ -525,12 +574,12 @@ __global__ void build_jacobian_entries(
 
 __global__ void 
 kernel_u_momentum(
-    int grain, float* __restrict__ out,
-    const float* __restrict__ u, const float* __restrict__ v,
-    const float* __restrict__ p, const float* __restrict__ w,
+    int grain, double* __restrict__ out,
+    const double* __restrict__ u, const double* __restrict__ v,
+    const double* __restrict__ p, const double* __restrict__ w,
     const int xN, const int yN, const int zN,
-    const float dx, const float dy, const float dz,
-    const float Re, const int sizeY, const int sizeZ)
+    const double dx, const double dy, const double dz,
+    const double Re, const int sizeY, const int sizeZ)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
     int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
@@ -538,10 +587,10 @@ kernel_u_momentum(
 
     if (i > xN || j > yN || k > zN) return;
 
-    const float dy_dz = dy * dz;
-    const float dx_dz = dx * dz;
-    const float dx_dy = dx * dy;
-    const float inv_Re = 1.0f / Re;
+    const double dy_dz = dy * dz;
+    const double dx_dz = dx * dz;
+    const double dx_dy = dx * dy;
+    const double inv_Re = 1.0 / Re;
     const int pos = (i-1) * (yN * zN) + (j-1) * zN + (k-1);
     const int nc = xN * yN * zN;
     const int NC = 4 * nc;
@@ -552,21 +601,22 @@ kernel_u_momentum(
         const int stride_j = sizeZ * grain;
         const int stride_k = grain;
 
-        float u_c  = u[base_idx];
-        float u_ip = u[base_idx + stride_i];
-        float u_im = u[base_idx - stride_i];
-        float u_jp = u[base_idx + stride_j];
-        float u_jm = u[base_idx - stride_j];
-        float u_kp = u[base_idx + stride_k];
-        float u_km = u[base_idx - stride_k];
+        double u_c  = u[base_idx];
+        double u_ip = u[base_idx + stride_i];
+        double u_im = u[base_idx - stride_i];
+        double u_jp = u[base_idx + stride_j];
+        double u_jm = u[base_idx - stride_j];
+        double u_kp = u[base_idx + stride_k];
+        double u_km = u[base_idx - stride_k];
 
-        float result = 0.5f * dy_dz * (u_ip * u_ip - u_im * u_im);
-        result += 0.5f * dx_dz * (u_jp * v[base_idx + stride_j] - u_jm * v[base_idx - stride_j]);
-        result += 0.5f * dx_dy * (u_kp * w[base_idx + stride_k] - u_km * w[base_idx - stride_k]);
-        result += dy_dz * (p[base_idx + stride_i] - p[base_idx]);
-        result -= inv_Re * ((dy_dz/dx) * (u_ip - 2.0f*u_c + u_im) +
-                           (dx_dz/dy) * (u_jp - 2.0f*u_c + u_jm) +
-                           (dx_dy/dz) * (u_kp - 2.0f*u_c + u_km));
+        double result = 0.5 * dy_dz * (u_ip * u_ip - u_im * u_im);
+        result += 0.5 * dx_dz * (u_jp * v[base_idx + stride_j] - u_jm * v[base_idx - stride_j]);
+        result += 0.5 * dx_dy * (u_kp * w[base_idx + stride_k] - u_km * w[base_idx - stride_k]);
+        // result += dy_dz * (p[base_idx + stride_i] - p[base_idx]);
+        result += (dy_dz / 2.0) * (p[base_idx + stride_i] - p[base_idx - stride_i]);
+        result -= inv_Re * ((dy_dz/dx) * (u_ip - 2.0*u_c + u_im) +
+                           (dx_dz/dy) * (u_jp - 2.0*u_c + u_jm) +
+                           (dx_dy/dz) * (u_kp - 2.0*u_c + u_km));
 
         out[l * NC + pos] = result;
     }
@@ -575,12 +625,12 @@ kernel_u_momentum(
 // V-Momentum Kernel
 __global__ void 
 kernel_v_momentum(
-    int grain, float* __restrict__ out,
-    const float* __restrict__ u, const float* __restrict__ v,
-    const float* __restrict__ p, const float* __restrict__ w,
+    int grain, double* __restrict__ out,
+    const double* __restrict__ u, const double* __restrict__ v,
+    const double* __restrict__ p, const double* __restrict__ w,
     const int xN, const int yN, const int zN,
-    const float dx, const float dy, const float dz,
-    const float Re, const int sizeY, const int sizeZ)
+    const double dx, const double dy, const double dz,
+    const double Re, const int sizeY, const int sizeZ)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
     int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
@@ -588,10 +638,10 @@ kernel_v_momentum(
 
     if (i > xN || j > yN || k > zN) return;
 
-    const float dy_dz = dy * dz;
-    const float dx_dz = dx * dz;
-    const float dx_dy = dx * dy;
-    const float inv_Re = 1.0f / Re;
+    const double dy_dz = dy * dz;
+    const double dx_dz = dx * dz;
+    const double dx_dy = dx * dy;
+    const double inv_Re = 1.0 / Re;
     const int pos = (i-1) * (yN * zN) + (j-1) * zN + (k-1);
     const int nc = xN * yN * zN;
     const int NC = 4 * nc;
@@ -602,21 +652,22 @@ kernel_v_momentum(
         const int stride_j = sizeZ * grain;
         const int stride_k = grain;
 
-        float v_c  = v[base_idx];
-        float v_ip = v[base_idx + stride_i];
-        float v_im = v[base_idx - stride_i];
-        float v_jp = v[base_idx + stride_j];
-        float v_jm = v[base_idx - stride_j];
-        float v_kp = v[base_idx + stride_k];
-        float v_km = v[base_idx - stride_k];
+        double v_c  = v[base_idx];
+        double v_ip = v[base_idx + stride_i];
+        double v_im = v[base_idx - stride_i];
+        double v_jp = v[base_idx + stride_j];
+        double v_jm = v[base_idx - stride_j];
+        double v_kp = v[base_idx + stride_k];
+        double v_km = v[base_idx - stride_k];
 
-        float result = 0.5f * dy_dz * (u[base_idx + stride_i] * v_ip - u[base_idx - stride_i] * v_im);
-        result += 0.5f * dx_dz * (v_jp * v_jp - v_jm * v_jm);
-        result += 0.5f * dx_dy * (v_kp * w[base_idx + stride_k] - v_km * w[base_idx - stride_k]);
-        result += dx_dz * (p[base_idx + stride_j] - p[base_idx]);
-        result -= inv_Re * ((dy_dz/dx) * (v_ip - 2.0f*v_c + v_im) +
-                           (dx_dz/dy) * (v_jp - 2.0f*v_c + v_jm) +
-                           (dx_dy/dz) * (v_kp - 2.0f*v_c + v_km));
+        double result = 0.5 * dy_dz * (u[base_idx + stride_i] * v_ip - u[base_idx - stride_i] * v_im);
+        result += 0.5 * dx_dz * (v_jp * v_jp - v_jm * v_jm);
+        result += 0.5 * dx_dy * (v_kp * w[base_idx + stride_k] - v_km * w[base_idx - stride_k]);
+        // result += dx_dz * (p[base_idx + stride_j] - p[base_idx]);
+        result += (dx_dz / 2.0) * (p[base_idx + stride_j] - p[base_idx - stride_j]);
+        result -= inv_Re * ((dy_dz/dx) * (v_ip - 2.0*v_c + v_im) +
+                           (dx_dz/dy) * (v_jp - 2.0*v_c + v_jm) +
+                           (dx_dy/dz) * (v_kp - 2.0*v_c + v_km));
 
         out[l * NC + nc + pos] = result;
     }
@@ -625,12 +676,12 @@ kernel_v_momentum(
 // W-Momentum Kernel
 __global__ void
 kernel_w_momentum(
-    int grain, float* __restrict__ out,
-    const float* __restrict__ u, const float* __restrict__ v,
-    const float* __restrict__ p, const float* __restrict__ w,
+    int grain, double* __restrict__ out,
+    const double* __restrict__ u, const double* __restrict__ v,
+    const double* __restrict__ p, const double* __restrict__ w,
     const int xN, const int yN, const int zN,
-    const float dx, const float dy, const float dz,
-    const float Re, const int sizeY, const int sizeZ)
+    const double dx, const double dy, const double dz,
+    const double Re, const int sizeY, const int sizeZ)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
     int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
@@ -638,10 +689,10 @@ kernel_w_momentum(
 
     if (i > xN || j > yN || k > zN) return;
 
-    const float dy_dz = dy * dz;
-    const float dx_dz = dx * dz;
-    const float dx_dy = dx * dy;
-    const float inv_Re = 1.0f / Re;
+    const double dy_dz = dy * dz;
+    const double dx_dz = dx * dz;
+    const double dx_dy = dx * dy;
+    const double inv_Re = 1.0 / Re;
     const int pos = (i-1) * (yN * zN) + (j-1) * zN + (k-1);
     const int nc = xN * yN * zN;
     const int NC = 4 * nc;
@@ -652,21 +703,22 @@ kernel_w_momentum(
         const int stride_j = sizeZ * grain;
         const int stride_k = grain;
 
-        float w_c  = w[base_idx];
-        float w_ip = w[base_idx + stride_i];
-        float w_im = w[base_idx - stride_i];
-        float w_jp = w[base_idx + stride_j];
-        float w_jm = w[base_idx - stride_j];
-        float w_kp = w[base_idx + stride_k];
-        float w_km = w[base_idx - stride_k];
+        double w_c  = w[base_idx];
+        double w_ip = w[base_idx + stride_i];
+        double w_im = w[base_idx - stride_i];
+        double w_jp = w[base_idx + stride_j];
+        double w_jm = w[base_idx - stride_j];
+        double w_kp = w[base_idx + stride_k];
+        double w_km = w[base_idx - stride_k];
 
-        float result = 0.5f * dy_dz * (u[base_idx + stride_i] * w_ip - u[base_idx - stride_i] * w_im);
-        result += 0.5f * dx_dz * (v[base_idx + stride_j] * w_jp - v[base_idx - stride_j] * w_jm);
-        result += 0.5f * dx_dy * (w_kp * w_kp - w_km * w_km);
-        result += dx_dy * (p[base_idx + stride_k] - p[base_idx]);
-        result -= inv_Re * ((dy_dz/dx) * (w_ip - 2.0f*w_c + w_im) +
-                           (dx_dz/dy) * (w_jp - 2.0f*w_c + w_jm) +
-                           (dx_dy/dz) * (w_kp - 2.0f*w_c + w_km));
+        double result = 0.5 * dy_dz * (u[base_idx + stride_i] * w_ip - u[base_idx - stride_i] * w_im);
+        result += 0.5 * dx_dz * (v[base_idx + stride_j] * w_jp - v[base_idx - stride_j] * w_jm);
+        result += 0.5 * dx_dy * (w_kp * w_kp - w_km * w_km);
+        // result += dx_dy * (p[base_idx + stride_k] - p[base_idx]);
+        result += (dx_dy / 2.0) * (p[base_idx + stride_k] - p[base_idx - stride_k]);
+        result -= inv_Re * ((dy_dz/dx) * (w_ip - 2.0*w_c + w_im) +
+                           (dx_dz/dy) * (w_jp - 2.0*w_c + w_jm) +
+                           (dx_dy/dz) * (w_kp - 2.0*w_c + w_km));
 
         out[l * NC + 2*nc + pos] = result;
     }
@@ -675,11 +727,11 @@ kernel_w_momentum(
 // Continuity Kernel
 __global__ void 
 kernel_continuity(
-    int grain, float* __restrict__ out,
-    const float* __restrict__ u, const float* __restrict__ v,
-    const float* __restrict__ w,
+    int grain, double* __restrict__ out,
+    const double* __restrict__ u, const double* __restrict__ v,
+    const double* __restrict__ w,
     const int xN, const int yN, const int zN,
-    const float dx, const float dy, const float dz,
+    const double dx, const double dy, const double dz,
     const int sizeY, const int sizeZ)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
@@ -698,18 +750,18 @@ kernel_continuity(
         const int stride_j = sizeZ * grain;
         const int stride_k = grain;
 
-        float result = 0.5f * dy * dz * (u[base_idx + stride_i] - u[base_idx - stride_i]);
-        result += 0.5f * dx * dz * (v[base_idx + stride_j] - v[base_idx - stride_j]);
-        result += 0.5f * dx * dy * (w[base_idx + stride_k] - w[base_idx - stride_k]);
+        double result = 0.5 * dy * dz * (u[base_idx + stride_i] - u[base_idx - stride_i]);
+        result += 0.5 * dx * dz * (v[base_idx + stride_j] - v[base_idx - stride_j]);
+        result += 0.5 * dx * dy * (w[base_idx + stride_k] - w[base_idx - stride_k]);
 
         out[l * NC + 3*nc + pos] = result;
     }
 }
 
 //We might use nvida file i/o cuFile
-std::tuple<float*,float*,float*,float*> boundary_conditions_final(float *ysol,
+std::tuple<double*,double*,double*,double*> boundary_conditions_final(double *ysol,
                        const int xN, const int yN, const int zN,
-                       const float *u_inlet)
+                       const double *u_inlet)
 {
     int sizeX = xN + 2;
     int sizeY = yN + 2;
@@ -718,19 +770,19 @@ std::tuple<float*,float*,float*,float*> boundary_conditions_final(float *ysol,
     int nCell = 4 * xN * yN * zN;
 
     
-    float *d_u_inlet,*ud, *vd, *wd, *pd;
+    double *d_u_inlet,*ud, *vd, *wd, *pd;
 
-    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(double))));
 
     int inletSize = sizeY * sizeZ;
-    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
     
     //Copy data to Device
-    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(double), cudaMemcpyHostToDevice));
 
     // Initialize boundary conditions
     dim3 bi_th(8, 8, 4);
@@ -766,10 +818,10 @@ std::tuple<float*,float*,float*,float*> boundary_conditions_final(float *ysol,
 // HOST FUNCTION: UV VELOCITY SINGLE
 // ============================================================================
 
-void uv_velocity_single(float *out, const float Re, float *y,
+void uv_velocity_single(double *out, const double Re, double *y,
                        const int xN, const int yN, const int zN,
-                       const float *u_inlet,
-                       const float dx, const float dy, const float dz)
+                       const double *u_inlet,
+                       const double dx, const double dy, const double dz)
 {
     int sizeX = xN + 2;
     int sizeY = yN + 2;
@@ -778,22 +830,27 @@ void uv_velocity_single(float *out, const float Re, float *y,
     int nCell = 4 * xN * yN * zN;
 
     // Allocate device memory with alignment
-    float *dev_out, *ysol, *d_u_inlet;
-    float *ud, *vd, *wd, *pd;
+    double *dev_out, *ysol, *d_u_inlet;
+    double *ud, *vd, *wd, *pd;
 
-    CUDA_CHECK(cudaMalloc(&dev_out, align_size(nCell * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&dev_out, align_size(nCell * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(double))));
+
+    CUDA_CHECK(cudaMemset(ud, 0, totalSize * sizeof(double)));
+CUDA_CHECK(cudaMemset(vd, 0, totalSize * sizeof(double)));
+CUDA_CHECK(cudaMemset(wd, 0, totalSize * sizeof(double)));
+CUDA_CHECK(cudaMemset(pd, 0, totalSize * sizeof(double)));
 
     int inletSize = sizeY * sizeZ;
-    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
 
     // Copy data to device
-    CUDA_CHECK(cudaMemcpy(ysol, y, nCell * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(ysol, y, nCell * sizeof(double), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(double), cudaMemcpyHostToDevice));
 
     // Initialize boundary conditions
     dim3 bi_th(8, 8, 4);
@@ -820,7 +877,7 @@ void uv_velocity_single(float *out, const float Re, float *y,
     CUDA_CHECK(cudaGetLastError());
 
     // Copy results back
-    CUDA_CHECK(cudaMemcpy(out, dev_out, nCell * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(out, dev_out, nCell * sizeof(double), cudaMemcpyDeviceToHost));
 
     // Free memory
     CUDA_CHECK(cudaFree(dev_out));
@@ -833,10 +890,10 @@ void uv_velocity_single(float *out, const float Re, float *y,
 }
 
 //direct return a pointer to gpu memory, it allocates space , caller is resposnible for freeing 
-float* uv_velocity_single(const float Re, float *y,
+double* uv_velocity_single(const double Re, double *y,
                        const int xN, const int yN, const int zN,
-                       const float *u_inlet,
-                       const float dx, const float dy, const float dz)
+                       const double *u_inlet,
+                       const double dx, const double dy, const double dz)
 {
     int sizeX = xN + 2;
     int sizeY = yN + 2;
@@ -845,22 +902,27 @@ float* uv_velocity_single(const float Re, float *y,
     int nCell = 4 * xN * yN * zN;
 
     // Allocate device memory with alignment
-    float *dev_out, *ysol, *d_u_inlet;
-    float *ud, *vd, *wd, *pd;
+    double *dev_out, *ysol, *d_u_inlet;
+    double *ud, *vd, *wd, *pd;
 
-    CUDA_CHECK(cudaMalloc(&dev_out, align_size(nCell * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&dev_out, align_size(nCell * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(double))));
+
+    CUDA_CHECK(cudaMemset(ud, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(vd, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(wd, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(pd, 0, totalSize * sizeof(double)));
 
     int inletSize = sizeY * sizeZ;
-    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
 
     // Copy data to device
-    CUDA_CHECK(cudaMemcpy(ysol, y, nCell * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(ysol, y, nCell * sizeof(double), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(double), cudaMemcpyHostToDevice));
 
     // Initialize boundary conditions
     dim3 bi_th(8, 8, 4);
@@ -898,10 +960,10 @@ float* uv_velocity_single(const float Re, float *y,
 }
 
 //direct read residual from gpu and returns a pointer to gpu memory, it allocates space , caller is resposnible for freeing 
-float* uv_velocity_single_direct(const float Re, float *y,
+double* uv_velocity_single_direct(const double Re, double *y,
                        const int xN, const int yN, const int zN,
-                       const float *u_inlet,
-                       const float dx, const float dy, const float dz)
+                       const double *u_inlet,
+                       const double dx, const double dy, const double dz)
 {
     int sizeX = xN + 2;
     int sizeY = yN + 2;
@@ -910,20 +972,25 @@ float* uv_velocity_single_direct(const float Re, float *y,
     int nCell = 4 * xN * yN * zN;
 
     // Allocate device memory with alignment
-    float *dev_out,*d_u_inlet;
-    float *ud, *vd, *wd, *pd;
+    double *dev_out,*d_u_inlet;
+    double *ud, *vd, *wd, *pd;
 
-    CUDA_CHECK(cudaMalloc(&dev_out, align_size(nCell * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(float))));
-    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&dev_out, align_size(nCell * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(double))));
+    CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(double))));
+
+    CUDA_CHECK(cudaMemset(ud, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(vd, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(wd, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(pd, 0, totalSize * sizeof(double)));
 
     int inletSize = sizeY * sizeZ;
-    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(float))));
+    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
 
     // Copy data to device
-    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(double), cudaMemcpyHostToDevice));
 
     // Initialize boundary conditions
     dim3 bi_th(8, 8, 4);
@@ -979,23 +1046,23 @@ float* uv_velocity_single_direct(const float Re, float *y,
  * @param dz       Grid spacing in the Z direction.
  *
  * @return A std::pair containing:
- * - **first**: `float*` - Device pointer to the base residual vector \f$ F(y) \f$.
- * - **second**: `std::tuple<int*, int*, float*, int>` - The Jacobian matrix in Coordinate (COO) format:
+ * - **first**: `double*` - Device pointer to the base residual vector \f$ F(y) \f$.
+ * - **second**: `std::tuple<int*, int*, double*, int>` - The Jacobian matrix in Coordinate (COO) format:
  * - `int*`: Device pointer to row indices.
  * - `int*`: Device pointer to column indices.
- * - `float*`: Device pointer to non-zero values.
+ * - `double*`: Device pointer to non-zero values.
  * - `int`: The total count of non-zero elements (nnz).
  *
  * @note The returned pointers point to **device memory** (GPU). The caller is responsible 
  * for freeing these resources using `cudaFree`.
  * @warning This function performs significant device memory allocation. Ensure sufficient GPU memory is available.
  */
-std::pair<float*, std::tuple<int*, int*, float*, int>>
+std::pair<double*, std::tuple<int*, int*, double*, int>>
 Residuals_Sparse_Jacobian_finite_diff(
-    const float Re, float *y,
+    const double Re, double *y,
     const int xN, const int yN, const int zN,
-    const float *u_inlet,
-    const float dx, const float dy, const float dz)
+    const double *u_inlet,
+    const double dx, const double dy, const double dz)
 {
     const int grain = 1;
     const int sizeX = xN + 2;
@@ -1003,45 +1070,49 @@ Residuals_Sparse_Jacobian_finite_diff(
     const int sizeZ = zN + 2;
     const int totalSize = sizeX * sizeY * sizeZ;
     const int nCell = 4 * xN * yN * zN;
-    const float EPS = 1e-3f;
+    const double EPS = 1e-6;  // sqrt of machine epsilon for double
+    std::vector<double> h(nCell);
 
-    std::vector<float> h(nCell);
     for (int j = 0; j < nCell; ++j) {
-        float temp = y[j];
-        h[j] = EPS * std::abs(temp);
-        if (std::abs(h[j]) < 1e-8f) h[j] = EPS;
-        y[j] = temp + h[j];
-        h[j] = y[j] - temp;
+        double temp = y[j];
+        // Use max to handle near-zero values
+        h[j] = EPS * std::max(1.0, std::abs(temp));
+        
+        // Ensure we actually perturb the value (avoid roundoff)
+        double y_perturbed = temp + h[j];
+        h[j] = y_perturbed - temp;  // Actual perturbation achieved
+        
+        // Store back
         y[j] = temp;
     }
 
-    float* d_fold=nullptr;
+    double* d_fold=nullptr;
     d_fold=uv_velocity_single(Re, y, xN, yN, zN, u_inlet, dx, dy, dz);
 
-    float *hd, *d_ysol, *d_u_inlet;
-    CUDA_CHECK(cudaMalloc(&hd, align_size(nCell * sizeof(float))));
-    CUDA_CHECK(cudaMemcpy(hd, h.data(), nCell * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMalloc(&d_ysol, align_size(nCell * sizeof(float))));
-    CUDA_CHECK(cudaMemcpy(d_ysol, y, nCell * sizeof(float), cudaMemcpyHostToDevice));
+    double *hd, *d_ysol, *d_u_inlet;
+    CUDA_CHECK(cudaMalloc(&hd, align_size(nCell * sizeof(double))));
+    CUDA_CHECK(cudaMemcpy(hd, h.data(), nCell * sizeof(double), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMalloc(&d_ysol, align_size(nCell * sizeof(double))));
+    CUDA_CHECK(cudaMemcpy(d_ysol, y, nCell * sizeof(double), cudaMemcpyHostToDevice));
 
     int inletSize = sizeY * sizeZ;
-    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(float))));
-    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
+    CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(double), cudaMemcpyHostToDevice));
 
     size_t max_nnz = (size_t)nCell * 1000; //Guess based on the sparsity
     int *d_all_rows, *d_all_cols;
-    float *d_all_vals;
+    double *d_all_vals;
     int *d_global_counter;
     
     CUDA_CHECK(cudaMalloc(&d_all_rows, max_nnz * sizeof(int)));
     CUDA_CHECK(cudaMalloc(&d_all_cols, max_nnz * sizeof(int)));
-    CUDA_CHECK(cudaMalloc(&d_all_vals, max_nnz * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_all_vals, max_nnz * sizeof(double)));
     CUDA_CHECK(cudaMalloc(&d_global_counter, sizeof(int)));
     CUDA_CHECK(cudaMemset(d_global_counter, 0, sizeof(int)));
 
     int chunk_size = std::min(grain, nCell);
     int num_chunks = (nCell + chunk_size - 1) / chunk_size;
-    int n_threads = std::min(2 , omp_get_max_threads());
+    int n_threads = std::min(1 , omp_get_max_threads());
     int chunks_per_thread = (num_chunks + n_threads - 1) / n_threads;
 
     std::cout << "Building Jacobian (split kernels)..." << std::endl;
@@ -1052,17 +1123,22 @@ Residuals_Sparse_Jacobian_finite_diff(
         cudaStream_t stream;
         CUDA_CHECK(cudaStreamCreate(&stream));
 
-        float *dev_out, *ud, *vd, *wd, *pd, *d_ysol_batch;
+        double *dev_out, *ud, *vd, *wd, *pd, *d_ysol_batch;
         int *d_t_batch;
 
         size_t totalSize_grain = (size_t)totalSize * grain;
-        CUDA_CHECK(cudaMalloc(&dev_out, align_size((size_t)grain * nCell * sizeof(float))));
-        CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize_grain * sizeof(float))));
-        CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize_grain * sizeof(float))));
-        CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize_grain * sizeof(float))));
-        CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize_grain * sizeof(float))));
-        CUDA_CHECK(cudaMalloc(&d_ysol_batch, align_size((size_t)grain * nCell * sizeof(float))));
+        CUDA_CHECK(cudaMalloc(&dev_out, align_size((size_t)grain * nCell * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize_grain * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize_grain * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize_grain * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize_grain * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&d_ysol_batch, align_size((size_t)grain * nCell * sizeof(double))));
         CUDA_CHECK(cudaMalloc(&d_t_batch, align_size(grain * sizeof(int))));
+
+        CUDA_CHECK(cudaMemsetAsync(ud, 0, totalSize_grain * sizeof(double), stream));
+        CUDA_CHECK(cudaMemsetAsync(vd, 0, totalSize_grain * sizeof(double), stream));
+        CUDA_CHECK(cudaMemsetAsync(wd, 0, totalSize_grain * sizeof(double), stream));
+        CUDA_CHECK(cudaMemsetAsync(pd, 0, totalSize_grain * sizeof(double), stream));
 
         std::vector<int> t_batch_host(grain);
         int chunk_start = tid * chunks_per_thread;
@@ -1175,10 +1251,10 @@ Residuals_Sparse_Jacobian_finite_diff(
 }
 
 
-std::tuple<float, float, float>
-coordinates(std::vector<float> &xcoor, std::vector<float> &ycoor,
-            std::vector<float> &zcoor, const int xN, const int yN,
-            const int zN, const float L, const float M, const float N) {
+std::tuple<double, double, double>
+coordinates(std::vector<double> &xcoor, std::vector<double> &ycoor,
+            std::vector<double> &zcoor, const int xN, const int yN,
+            const int zN, const double L, const double M, const double N) {
     int xSize = xN + 2;
     int ySize = yN + 2;
     int zSize = zN + 2;
@@ -1194,9 +1270,9 @@ coordinates(std::vector<float> &xcoor, std::vector<float> &ycoor,
         }
     }
 
-    float dx = L / (xSize - 1);
-    float dy = M / (ySize - 1);
-    float dz = N / (zSize - 1);
+    double dx = L / (xSize - 1);
+    double dy = M / (ySize - 1);
+    double dz = N / (zSize - 1);
 
     return std::make_tuple(dx, dy, dz);
 }
@@ -1210,7 +1286,7 @@ coordinates(std::vector<float> &xcoor, std::vector<float> &ycoor,
 // Helper kernel to permute data based on sorted indices
 // out[i] = in[ sorted_indices[i] ]
 // __global__ void permute_data(const int* in_cols, int* out_cols, 
-//                              const float* in_vals, float* out_vals, 
+//                              const double* in_vals, double* out_vals, 
 //                              const int* sorted_indices, int nnz) {
 //     int i = threadIdx.x + blockIdx.x * blockDim.x;
 //     if (i < nnz) {
@@ -1225,7 +1301,7 @@ coordinates(std::vector<float> &xcoor, std::vector<float> &ycoor,
 // -------------------------------------------------------------------------
 // Kernel: Generate Selection Flags
 // -------------------------------------------------------------------------
-__global__ void generate_flags_kernel(int nnz, const float* values, char* flags, float threshold) {
+__global__ void generate_flags_kernel(int nnz, const double* values, char* flags, double threshold) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < nnz) {
         // 1 = Keep, 0 = Discard
@@ -1236,9 +1312,9 @@ __global__ void generate_flags_kernel(int nnz, const float* values, char* flags,
 // -------------------------------------------------------------------------
 // Main Filter Function (CSR Format using CUB)
 // -------------------------------------------------------------------------
-void filter_csr_cub(float threshold,int rows, int old_nnz,
-                    int* d_row_offsets, int* d_cols, float* d_vals,
-                    int** d_new_row_offsets, int** d_new_cols, float** d_new_vals,
+void filter_csr_cub(double threshold,int rows, int old_nnz,
+                    int* d_row_offsets, int* d_cols, double* d_vals,
+                    int** d_new_row_offsets, int** d_new_cols, double** d_new_vals,
                     int* new_nnz_out) {
   
     // ---------------------------------------------------------------------
@@ -1315,7 +1391,7 @@ void filter_csr_cub(float threshold,int rows, int old_nnz,
     // Write the final NNZ to the end of the row pointer array (Index 'rows')
     CUDA_CHECK(cudaMemcpy(*d_new_row_offsets + rows, &final_nnz, sizeof(int), cudaMemcpyHostToDevice));
 
-    printf("Filtering Result: %d -> %d elements threshold:%f \n", old_nnz, final_nnz,threshold);
+    // printf("Filtering Result: %d -> %d elements threshold:%f \n", old_nnz, final_nnz,threshold);
 
     // ---------------------------------------------------------------------
     // 4. Compact Data Arrays (DeviceSelect)
@@ -1323,7 +1399,7 @@ void filter_csr_cub(float threshold,int rows, int old_nnz,
     
     // Allocate Result Arrays
     CUDA_CHECK(cudaMalloc((void**)d_new_cols, final_nnz * sizeof(int)));
-    CUDA_CHECK(cudaMalloc((void**)d_new_vals, final_nnz * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)d_new_vals, final_nnz * sizeof(double)));
     
     // CUB requires a pointer to store the number of selected items (on device)
     int* d_num_selected;
@@ -1384,7 +1460,7 @@ void print_csc_matrix(
     int num_cols,           // Number of columns
     const int* d_col_ptr,   // DEVICE Pointer: Column Pointers
     const int* d_row_ind,   // DEVICE Pointer: Row Indices
-    const float* d_val      // DEVICE Pointer: Values
+    const double* d_val      // DEVICE Pointer: Values
 ) {
     printf("\n=== GPU CSC Matrix Dump (%d rows x %d cols) ===\n", num_rows, num_cols);
 
@@ -1403,10 +1479,10 @@ void print_csc_matrix(
 
     // 3. Allocate and Copy Row Indices and Values
     std::vector<int> h_row_ind(total_nnz);
-    std::vector<float> h_val(total_nnz);
+    std::vector<double> h_val(total_nnz);
 
     CUDA_CHECK(cudaMemcpy(h_row_ind.data(), d_row_ind, total_nnz * sizeof(int), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_val.data(), d_val, total_nnz * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_val.data(), d_val, total_nnz * sizeof(double), cudaMemcpyDeviceToHost));
 
     printf("---------------------------------------------------\n");
 
@@ -1424,7 +1500,7 @@ void print_csc_matrix(
 
         for (int i = start_idx; i < end_idx; i++) {
             int row = h_row_ind[i];
-            float val = h_val[i];
+            double val = h_val[i];
 
             printf("    Row %d : %.6f", row, val);
 
@@ -1479,17 +1555,17 @@ void print_csc_matrix(
 void compute_AtA_debug(
     int* d_rows_coo,
     int* d_cols_coo,
-    float* d_vals_coo,
+    double* d_vals_coo,
     int nnz,
     int num_rows,
     int num_cols,
     int** d_result_rows,
     int** d_result_cols,
-    float** d_result_vals,
+    double** d_result_vals,
     int* result_nnz,
     int** d_AT_cscOffsets, 
     int** d_AT_columns,
-    float** d_AT_values)
+    double** d_AT_values)
 {
     // -------------------------------------------------------------------------
     // 0. Setup Input Data (Convert COO matrix to CSR)
@@ -1499,19 +1575,19 @@ void compute_AtA_debug(
     
     // Convert COO to CSR for A
     int *d_csrRowPtrA, *d_csrColIndA;
-    float *d_csrValA;
+    double *d_csrValA;
 
     CUDA_CHECK(cudaMalloc(&d_csrRowPtrA, (num_rows + 1) * sizeof(int)));
     CUDA_CHECK(cudaMalloc(&d_csrColIndA, nnz * sizeof(int)));
-    CUDA_CHECK(cudaMalloc(&d_csrValA, nnz * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_csrValA, nnz * sizeof(double)));
 
     CUSPARSE_CHECK(cusparseXcoo2csr(handle, d_rows_coo, nnz, num_rows, d_csrRowPtrA, CUSPARSE_INDEX_BASE_ZERO));
     
     //Copy the values 
     CUDA_CHECK(cudaMemcpy(d_csrColIndA, d_cols_coo, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
-    CUDA_CHECK(cudaMemcpy(d_csrValA, d_vals_coo, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(d_csrValA, d_vals_coo, nnz * sizeof(double), cudaMemcpyDeviceToDevice));
 
-    std::cout << "Converted A to CSR" << std::endl;
+    // std::cout << "Converted A to CSR" << std::endl;
 
     //-------------------------------------------------------------------------
     // 1. Explicit Transpose: Generate A^T
@@ -1526,7 +1602,7 @@ void compute_AtA_debug(
 
     CUDA_CHECK(cudaMalloc((void**)d_AT_columns, nnz * sizeof(int)));
 
-    CUDA_CHECK(cudaMalloc((void**)d_AT_values, nnz * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)d_AT_values, nnz * sizeof(double)));
 
     size_t transposeBufferSize = 0;
     void* d_transposeBuffer = NULL;
@@ -1536,7 +1612,7 @@ void compute_AtA_debug(
         handle, num_rows, num_cols, nnz,
         d_csrValA, d_csrRowPtrA, d_csrColIndA,
         *d_AT_values, *d_AT_cscOffsets, *d_AT_columns, // Output arrays
-        CUDA_R_32F, CUSPARSE_ACTION_NUMERIC,
+        CUDA_R_64F, CUSPARSE_ACTION_NUMERIC,
         CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, 
         &transposeBufferSize
     ));
@@ -1548,7 +1624,7 @@ void compute_AtA_debug(
         handle, num_rows, num_cols, nnz,
         d_csrValA, d_csrRowPtrA, d_csrColIndA,
         *d_AT_values, *d_AT_cscOffsets, *d_AT_columns,
-        CUDA_R_32F, CUSPARSE_ACTION_NUMERIC,
+        CUDA_R_64F, CUSPARSE_ACTION_NUMERIC,
         CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, 
         d_transposeBuffer
     ));
@@ -1557,32 +1633,32 @@ void compute_AtA_debug(
     // 2. Initialize cuSPARSE and Matrix Descriptors
     // -------------------------------------------------------------------------
 
-    //CUDA_R_32F is float 
-    //32-bit indices CUSPARSE_INDEX_32I is supported (float) or 64-bit indices (CUSPARSE_INDEX_64I)
+    //CUDA_R_64F is double 
+    //32-bit indices CUSPARSE_INDEX_32I is supported (double) or 64-bit indices (CUSPARSE_INDEX_64I)
     cusparseSpMatDescr_t matA, matAt, matC;
    
     CUSPARSE_CHECK(cusparseCreateCsr(&matA, num_rows, num_cols, nnz,
                       d_csrRowPtrA, d_cols_coo, d_vals_coo,
                       CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
+                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F));
     
     CUSPARSE_CHECK(cusparseCreateCsr(&matAt, num_cols, num_rows, nnz,
                                      *d_AT_cscOffsets, *d_AT_columns, *d_AT_values,
                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                                     CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
+                                     CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F));
 
     CUSPARSE_CHECK(cusparseCreateCsr(&matC, num_cols, num_cols, 0,
                       nullptr, nullptr, nullptr,
                       CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
+                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F));
     
-    std::cout << "Created matrix descriptors (A^T: " << num_cols << "x" << num_rows 
-              << ", A: " << num_rows << "x" << num_cols << ")" << std::endl;
+    // std::cout << "Created matrix descriptors (A^T: " << num_cols << "x" << num_rows 
+    //           << ", A: " << num_rows << "x" << num_cols << ")" << std::endl;
     
     // -------------------------------------------------------------------------
     // 3. SpGEMM Setup
     // -------------------------------------------------------------------------
-    float alpha = 1.0f, beta = 0.0f;
+    double alpha = 1.0, beta = 0.0;
     cusparseSpGEMMDescr_t spgemmDesc;
     CUSPARSE_CHECK(cusparseSpGEMM_createDescr(&spgemmDesc));
 
@@ -1598,10 +1674,10 @@ void compute_AtA_debug(
     void* dBuffer1 = nullptr;
     CUSPARSE_CHECK(cusparseSpGEMM_workEstimation(handle, opA,opB,
                                    &alpha, matAt, matA, &beta, matC,
-                                   CUDA_R_32F, CUSPARSE_SPGEMM_DEFAULT,
+                                   CUDA_R_64F, CUSPARSE_SPGEMM_DEFAULT,
                                    spgemmDesc, &bufferSize1, nullptr));
     
-    std::cout << "Buffer size 1: " << bufferSize1 << " bytes" << std::endl;
+    // std::cout << "Buffer size 1: " << bufferSize1 << " bytes" << std::endl;
     
     if (bufferSize1 > 0) {
         CUDA_CHECK(cudaMalloc(&dBuffer1, bufferSize1));
@@ -1609,10 +1685,10 @@ void compute_AtA_debug(
     
     CUSPARSE_CHECK(cusparseSpGEMM_workEstimation(handle, opA,opB,
                                    &alpha, matAt, matA, &beta, matC,
-                                   CUDA_R_32F, CUSPARSE_SPGEMM_DEFAULT,
+                                   CUDA_R_64F, CUSPARSE_SPGEMM_DEFAULT,
                                    spgemmDesc, &bufferSize1, dBuffer1));
     
-    std::cout << "Work estimation complete" << std::endl;
+    // std::cout << "Work estimation complete" << std::endl;
     
     // -------------------------------------------------------------------------
     // 5. Compute Structure 
@@ -1621,10 +1697,10 @@ void compute_AtA_debug(
     void* dBuffer2 = nullptr;
     CUSPARSE_CHECK(cusparseSpGEMM_compute(handle, opA,opB,
                           &alpha, matAt, matA, &beta, matC,
-                          CUDA_R_32F, CUSPARSE_SPGEMM_DEFAULT,
+                          CUDA_R_64F, CUSPARSE_SPGEMM_DEFAULT,
                           spgemmDesc, &bufferSize2, nullptr));
     
-    std::cout << "Buffer size 2: " << bufferSize2 << " bytes" << std::endl;
+    // std::cout << "Buffer size 2: " << bufferSize2 << " bytes" << std::endl;
     
     if (bufferSize2 > 0) {
         CUDA_CHECK(cudaMalloc(&dBuffer2, bufferSize2));
@@ -1632,10 +1708,10 @@ void compute_AtA_debug(
     
     CUSPARSE_CHECK(cusparseSpGEMM_compute(handle, opA,opB,
                           &alpha, matAt, matA, &beta, matC,
-                          CUDA_R_32F, CUSPARSE_SPGEMM_DEFAULT,
+                          CUDA_R_64F, CUSPARSE_SPGEMM_DEFAULT,
                           spgemmDesc, &bufferSize2, dBuffer2));
     
-    std::cout << "Compute complete" << std::endl;
+    // std::cout << "Compute complete" << std::endl;
     
     // -------------------------------------------------------------------------
     // 6. Allocate C and Copy Results
@@ -1647,28 +1723,28 @@ void compute_AtA_debug(
     
     // Allocate result CSR
     int *d_csrRowPtrC, *d_csrColIndC;
-    float *d_csrValC;
+    double *d_csrValC;
     
     CUDA_CHECK(cudaMalloc(&d_csrRowPtrC, (C_num_rows + 1) * sizeof(int)));
     CUDA_CHECK(cudaMalloc(&d_csrColIndC, C_nnz * sizeof(int)));
-    CUDA_CHECK(cudaMalloc(&d_csrValC, C_nnz * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_csrValC, C_nnz * sizeof(double)));
     
     CUSPARSE_CHECK(cusparseCsrSetPointers(matC, d_csrRowPtrC, d_csrColIndC, d_csrValC));
     
     // Copy result
     CUSPARSE_CHECK(cusparseSpGEMM_copy(handle, opA,opB,
                        &alpha, matAt, matA, &beta, matC,
-                       CUDA_R_32F, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
+                       CUDA_R_64F, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
     
-    std::cout << "Result copied" << std::endl;
+    // std::cout << "Result copied" << std::endl;
 
     //Define pointers for the trimed version
     int *d_trim_row_ptr, *d_trim_cols_ptr;
-    float *d_trim_vals_ptr;
+    double *d_trim_vals_ptr;
     int trim_nnz = 0;
     
     //Filter threshold
-    float threshold = 1e-7f;
+    double threshold = 1e-8;
 
     
     //Trim for zeroes
@@ -1681,35 +1757,6 @@ void compute_AtA_debug(
     *d_result_cols = d_trim_cols_ptr; 
     *d_result_vals = d_trim_vals_ptr;
     *result_nnz = trim_nnz;
-    
-    // Convert result to COO
-    // CUDA_CHECK(cudaMalloc(d_result_rows, trim_nnz * sizeof(int)));
-    
-    // CUSPARSE_CHECK(cusparseXcsr2coo(handle, d_trim_row_ptr, trim_nnz, C_num_rows,
-                    //  *d_result_rows, CUSPARSE_INDEX_BASE_ZERO));
-    
-    
-    // //Print first few results
-    // int* h_result_rows = new int[(int)trim_nnz];
-    // int* h_result_cols = new int[(int)trim_nnz];
-    // float* h_result_vals = new float[(int)trim_nnz];;
-    
-    // CUDA_CHECK(cudaMemcpy(h_result_rows, *d_result_rows, trim_nnz * sizeof(int), cudaMemcpyDeviceToHost));
-    // CUDA_CHECK(cudaMemcpy(h_result_cols, *d_result_cols, trim_nnz * sizeof(int), cudaMemcpyDeviceToHost));
-    // CUDA_CHECK(cudaMemcpy(h_result_vals, *d_result_vals,trim_nnz * sizeof(float), cudaMemcpyDeviceToHost));
-    
-    // std::cout << "Results:" << std::endl;
-    // for (int i = 0; i < (int)trim_nnz; i++) {
-    //     std::cout << "  (" << h_result_rows[i] << ", " << h_result_cols[i] << ") = " << h_result_vals[i] << std::endl;
-    // }
-
-    // -------------------------------------------------------------------------
-    // 7. CLEANUP 
-    // -------------------------------------------------------------------------
-    
-    // delete[] h_result_rows;
-    // delete[] h_result_cols;
-    // delete[] h_result_vals;
     
     // 1. Free SpGEMM Buffers
     if (dBuffer1) cudaFree(dBuffer1);
@@ -1726,11 +1773,7 @@ void compute_AtA_debug(
     // 4. Free Transpose Buffer
     if (d_transposeBuffer) cudaFree(d_transposeBuffer);
 
-    // 5. Free Filtered/Trimmed Intermediate Arrays
-    // cudaFree(d_trim_row_ptr);
 
-
-    
     // 6. Destroy Descriptors
     cusparseSpGEMM_destroyDescr(spgemmDesc);
     cusparseDestroySpMat(matA);
@@ -1741,8 +1784,8 @@ void compute_AtA_debug(
     cusparseDestroy(handle);
 }
 
-__global__ void identity_csr_and_scale_kernel(int N, float alpha, 
-                                    int* row_offsets, int* cols, float* vals) 
+__global__ void identity_csr_and_scale_kernel(int N, double alpha, 
+                                    int* row_offsets, int* cols, double* vals) 
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -1780,7 +1823,7 @@ __global__ void identity_csr_and_scale_kernel(int N, float alpha,
  * The caller is responsible for allocating device memory before calling this function:
  * - `d_row_offsets`: Must be size \f$ (N + 1) \times \text{sizeof(int)} \f$.
  * - `d_cols`: Must be size \f$ N \times \text{sizeof(int)} \f$.
- * - `d_vals`: Must be size \f$ N \times \text{sizeof(float)} \f$.
+ * - `d_vals`: Must be size \f$ N \times \text{sizeof(double)} \f$.
  *
  * @param[in]  N             The dimension of the square matrix (number of rows/columns).
  * @param[in]  alpha         The scalar value to place on the diagonal (scaling factor).
@@ -1788,8 +1831,8 @@ __global__ void identity_csr_and_scale_kernel(int N, float alpha,
  * @param[out] d_cols        Device pointer to the array that will hold the column indices.
  * @param[out] d_vals        Device pointer to the array that will hold the non-zero values.
  */
-void create_identity_csr_and_scale(int N, float alpha, 
-                                        int* d_row_offsets, int* d_cols, float* d_vals) 
+void create_identity_csr_and_scale(int N, double alpha, 
+                                        int* d_row_offsets, int* d_cols, double* d_vals) 
 {
     int blockSize = 256;
     int gridSize = ( (N + 1) + blockSize - 1) / blockSize;
@@ -1845,20 +1888,20 @@ void create_identity_csr_and_scale(int N, float alpha,
  * @param[out] d_C_values      Pointer to a device pointer that will receive C's values (CSR).
  */
 void add_csr_cusparse(
-    float delta,int m, int n,                          // Matrix dimensions (rows, cols)
+    double delta,int m, int n,                          // Matrix dimensions (rows, cols)
     int nnzA,                              // Non-zeros in A
-    const int* d_A_row_offsets, const int* d_A_columns, const float* d_A_values,
+    const int* d_A_row_offsets, const int* d_A_columns, const double* d_A_values,
     int nnzB,                              // Non-zeros in B
-    const int* d_B_row_offsets, const int* d_B_columns, const float* d_B_values,
+    const int* d_B_row_offsets, const int* d_B_columns, const double* d_B_values,
     int* nnzC_out,                         // Output: Non-zeros in C
-    int** d_C_row_offsets, int** d_C_columns, float** d_C_values // Output: Pointers to C data
+    int** d_C_row_offsets, int** d_C_columns, double** d_C_values // Output: Pointers to C data
 ) {
     cusparseHandle_t handle;
     CUSPARSE_CHECK(cusparseCreate(&handle));
 
     // Scalar multipliers (alpha = 1.0, beta = 1.0 for simple A+B)
-    const float alpha = delta;
-    const float beta = delta;
+    const double alpha = delta;
+    const double beta = delta;
 
     // 1. Create Matrix Descriptors
     cusparseMatDescr_t descrA, descrB, descrC;
@@ -1882,7 +1925,7 @@ void add_csr_cusparse(
     void* d_buffer = NULL;
     size_t bufferSize = 0;
     
-    CUSPARSE_CHECK(cusparseScsrgeam2_bufferSizeExt(
+    CUSPARSE_CHECK(cusparseDcsrgeam2_bufferSizeExt(
         handle, m, n,
         &alpha, descrA, nnzA, d_A_values, d_A_row_offsets, d_A_columns,
         &beta,  descrB, nnzB, d_B_values, d_B_row_offsets, d_B_columns,
@@ -1915,11 +1958,11 @@ void add_csr_cusparse(
     // 5. Allocate C Columns and Values
     // Now that we know nnzC, we can allocate the rest of the matrix.
     CUDA_CHECK(cudaMalloc((void**)d_C_columns, nnzC * sizeof(int)));
-    CUDA_CHECK(cudaMalloc((void**)d_C_values, nnzC * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)d_C_values, nnzC * sizeof(double)));
 
     // 6. Numeric Phase: Fill C_columns and C_values
     // Performs the actual addition.
-    CUSPARSE_CHECK(cusparseScsrgeam2(
+    CUSPARSE_CHECK(cusparseDcsrgeam2(
         handle, m, n,
         &alpha, descrA, nnzA, d_A_values, d_A_row_offsets, d_A_columns,
         &beta,  descrB, nnzB, d_B_values, d_B_row_offsets, d_B_columns,
@@ -1959,27 +2002,27 @@ void add_csr_cusparse(
  * @param[in]  d_values      Device pointer to the non-zero values of matrix A.
  * Size: \f$ \text{nnz} \f$.
  * * @param[in]  d_x           Device pointer to the dense input vector x.
- * Size: \f$ \text{cols} \times \text{sizeof(float)} \f$.
+ * Size: \f$ \text{cols} \times \text{sizeof(double)} \f$.
  * @param[in]  alpha         Scalar scaling factor \f$ \alpha \f$.
  * * @param[out] d_y_out       Address of a pointer. The function will allocate memory at this location
  * and store the result vector y.
- * Size: \f$ \text{rows} \times \text{sizeof(float)} \f$.
+ * Size: \f$ \text{rows} \times \text{sizeof(double)} \f$.
  */
 void scale_and_multiply_on_gpu(
     int rows, int cols, int nnz,
     const int* d_col_offsets,  // Input: Device Pointer
     const int* d_row_indices,  // Input: Device Pointer
-    const float* d_values,     // Input: Device Pointer
-    const float* d_x,          // Input: Device Pointer
-    float alpha,               // Scalar
-    float** d_y_out            // Output: Address of pointer to allocate
+    const double* d_values,     // Input: Device Pointer
+    const double* d_x,          // Input: Device Pointer
+    double alpha,               // Scalar
+    double** d_y_out            // Output: Address of pointer to allocate
 ) {
     // 1. Allocate Result Memory on GPU
     // We dereference d_y_out to set the caller's pointer
-    CUDA_CHECK( cudaMalloc((void**)d_y_out, rows * sizeof(float)) );
+    CUDA_CHECK( cudaMalloc((void**)d_y_out, rows * sizeof(double)) );
     
     // Initialize result to 0 (optional but good practice for safety)
-    CUDA_CHECK( cudaMemset(*d_y_out, 0, rows * sizeof(float)) );
+    CUDA_CHECK( cudaMemset(*d_y_out, 0, rows * sizeof(double)) );
 
     // 2. Create cuSPARSE Context
     cusparseHandle_t handle;
@@ -1992,17 +2035,17 @@ void scale_and_multiply_on_gpu(
     CUSPARSE_CHECK( cusparseCreateCsc(&matA, rows, cols, nnz,
                                       (void*)d_col_offsets, (void*)d_row_indices, (void*)d_values,
                                       CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) );
+                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) );
 
-    CUSPARSE_CHECK( cusparseCreateDnVec(&vecX, cols, (void*)d_x, CUDA_R_32F) );
+    CUSPARSE_CHECK( cusparseCreateDnVec(&vecX, cols, (void*)d_x, CUDA_R_64F) );
     
     // Use the newly allocated pointer (*d_y_out) for the Y descriptor
-    CUSPARSE_CHECK( cusparseCreateDnVec(&vecY, rows, *d_y_out, CUDA_R_32F) );
+    CUSPARSE_CHECK( cusparseCreateDnVec(&vecY, rows, *d_y_out, CUDA_R_64F) );
 
     // 4. Allocate Workspace
     void* d_buffer = nullptr;
     size_t bufferSize = 0;
-    float beta = 0.0f; // We are overwriting Y, not accumulating
+    double beta = 0.0; //overwriting Y, not accumulating
 
     // int last_offset;
     // cudaMemcpy(&last_offset, &d_col_offsets[cols], sizeof(int), cudaMemcpyDeviceToHost);
@@ -2010,7 +2053,7 @@ void scale_and_multiply_on_gpu(
 
     CUSPARSE_CHECK( cusparseSpMV_bufferSize(
         handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-        &alpha, matA, vecX, &beta, vecY, CUDA_R_32F,
+        &alpha, matA, vecX, &beta, vecY, CUDA_R_64F,
         CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize) );
 
     CUDA_CHECK( cudaMalloc(&d_buffer, bufferSize) );
@@ -2018,7 +2061,7 @@ void scale_and_multiply_on_gpu(
     // 5. Execute Operation (GPU only)
     CUSPARSE_CHECK( cusparseSpMV(
         handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-        &alpha, matA, vecX, &beta, vecY, CUDA_R_32F,
+        &alpha, matA, vecX, &beta, vecY, CUDA_R_64F,
         CUSPARSE_SPMV_ALG_DEFAULT, d_buffer) );
 
     // 6. Cleanup Local Resources
@@ -2070,7 +2113,7 @@ void check_indices_sanity(int nnz, int num_rows, const int* d_indices) {
  * - **Input Matrix A:** CSR (Compressed Sparse Row).
  * - **Input Vectors (b, x):** Dense vectors.
  * - **Index Type:** 32-bit Integers (`int32_t`).
- * - **Value Type:** 32-bit Floats (`float`).
+ * - **Value Type:** 32-bit doubles (`double`).
  *
  * @note **Memory Responsibility:**
  * - This function **allocates** device memory for the solution vector `*d_x_out`.
@@ -2086,10 +2129,10 @@ void check_indices_sanity(int nnz, int num_rows, const int* d_indices) {
  * @param[in]  d_values      Device pointer to the non-zero values of matrix A.
  * Size: \f$ nnz \f$.
  * @param[in]  d_b           Device pointer to the dense right-hand side vector \f$ b \f$.
- * Size: \f$ n \times \text{sizeof(float)} \f$.
+ * Size: \f$ n \times \text{sizeof(double)} \f$.
  * @param[out] d_x_out       Address of a pointer. The function allocates memory at this location
  * and stores the solution vector \f$ x \f$.
- * Size: \f$ n \times \text{sizeof(float)} \f$.
+ * Size: \f$ n \times \text{sizeof(double)} \f$.
  *
  * @warning This function assumes the matrix indices are **32-bit integers** (passed as `CUDA_R_32I`),
  * even though the function parameters `n` and `nnz` are `int64_t`. Ensure your device arrays strictly contain 32-bit integers to avoid type mismatches.
@@ -2099,12 +2142,12 @@ void solve_system_gpu(
     int64_t nnz,                
     const int* d_row_offsets,   
     const int* d_col_indices,   
-    const float* d_values,      
-    const float* d_b,           
-    float** d_x_out             
+    const double* d_values,      
+    const double* d_b,           
+    double** d_x_out             
 ) {
     // check_indices_sanity(nnz, n, d_row_offsets);
-    check_indices_sanity(nnz, n, d_col_indices); 
+    // check_indices_sanity(nnz, n, d_col_indices); 
 
         // std::cout << "\n=== Inside solve_system_gpu ===" << std::endl;
         // std::cout << "n=" << n << ", nnz=" << nnz << std::endl;
@@ -2119,8 +2162,8 @@ void solve_system_gpu(
         // delete[] h_row_check;
 
     // 1. Allocate Result Vector X on GPU
-    CUDA_CHECK( cudaMalloc((void**)d_x_out, n * sizeof(float)) );
-    CUDA_CHECK( cudaMemset(*d_x_out, 0, n * sizeof(float)) );
+    CUDA_CHECK( cudaMalloc((void**)d_x_out, n * sizeof(double)) );
+    CUDA_CHECK( cudaMemset(*d_x_out, 0, n * sizeof(double)) );
 
     // 2. Initialize cuDSS Handles
     cudssHandle_t handle;
@@ -2132,6 +2175,13 @@ void solve_system_gpu(
     CHECK_CUDSS( cudssConfigCreate(&config), "cudssConfigCreate" )
     CHECK_CUDSS( cudssDataCreate(handle, &solverData), "cudssDataCreate" )
 
+    // Change the config 
+    int alg = CUDSS_ALG_1;
+    CHECK_CUDSS(cudssConfigSet(config, CUDSS_CONFIG_REORDERING_ALG,&alg ,sizeof(alg) ), "Changing config");
+
+    int ir_steps = 3; 
+    CHECK_CUDSS(cudssConfigSet(config,  CUDSS_CONFIG_IR_N_STEPS,  &ir_steps, sizeof(ir_steps)),"Changing config");
+
     // 3. Create Matrix Wrappers 
     CHECK_CUDSS( cudssMatrixCreateCsr(&matA, 
                                       n, n, nnz, 
@@ -2140,21 +2190,21 @@ void solve_system_gpu(
                                       (void*)d_col_indices, 
                                       (void*)d_values, 
                                       CUDA_R_32I,           // Index Type
-                                      CUDA_R_32F,           // Value Type (Float)
+                                      CUDA_R_64F,           // Value Type (double)
                                       CUDSS_MTYPE_GENERAL, 
                                       CUDSS_MVIEW_FULL, 
                                       CUDSS_BASE_ZERO), "cudssMatrixCreateCsr" )
 
-    // Vector X (Dense Float) //At the moment supports only dense vectors
+    // Vector X (Dense double) //At the moment supports only dense vectors
     CHECK_CUDSS( cudssMatrixCreateDn(&vecX, n, 1, n, 
                                      (void*)*d_x_out, 
-                                     CUDA_R_32F,            // Value Type (Float)
+                                     CUDA_R_64F,            // Value Type (double)
                                      CUDSS_LAYOUT_COL_MAJOR), "cudssMatrixCreateDn(X)" )
 
-    // Vector B (Dense Float) //At the moment supports only dense vectors
+    // Vector B (Dense double) //At the moment supports only dense vectors
     CHECK_CUDSS( cudssMatrixCreateDn(&vecB, n, 1, n, 
                                      (void*)d_b, 
-                                     CUDA_R_32F,            // Value Type (Float)
+                                     CUDA_R_64F,            // Value Type (double)
                                      CUDSS_LAYOUT_COL_MAJOR), "cudssMatrixCreateDn(B)" )
 
     //Logging               
@@ -2200,7 +2250,7 @@ void sort_coo_matrix_cusparse(
     int nnz,
     int* d_rows,    // Device Pointer: Row Indices (Modified in-place)
     int* d_cols,    // Device Pointer: Col Indices (Modified in-place)
-    float* d_vals   // Device Pointer: Values (Modified in-place)
+    double* d_vals   // Device Pointer: Values (Modified in-place)
 ) {
     // 1. Create Local Handle
     cusparseHandle_t handle;
@@ -2211,18 +2261,18 @@ void sort_coo_matrix_cusparse(
     int* d_permutation = nullptr;
     CUDA_CHECK(cudaMalloc((void**)&d_permutation, nnz * sizeof(int)));
     
-    float* d_values_sorted=nullptr;
-    CUDA_CHECK(cudaMalloc((void**)&d_values_sorted, nnz * sizeof(float)));
+    double* d_values_sorted=nullptr;
+    CUDA_CHECK(cudaMalloc((void**)&d_values_sorted, nnz * sizeof(double)));
 
     // 3. Create Permutation Vector 
     CHECK_CUSPARSE( cusparseCreateSpVec(&vec_permutation, nnz, nnz,
                                     d_permutation, d_values_sorted,
                                     CUSPARSE_INDEX_32I,
-                                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) );
+                                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) );
 
      // Create dense vector for wrapping the original coo values
     CHECK_CUSPARSE( cusparseCreateDnVec(&vec_values, nnz, d_vals,
-                                        CUDA_R_32F) )
+                                        CUDA_R_64F) )
 
     // 2. Allocate Buffer for Sorting
     void* d_buffer = nullptr;
@@ -2253,7 +2303,7 @@ void sort_coo_matrix_cusparse(
 
     CHECK_CUSPARSE( cusparseGather(handle, vec_values, vec_permutation) )
     
-    CUDA_CHECK(cudaMemcpy(d_vals, d_values_sorted, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(d_vals, d_values_sorted, nnz * sizeof(double), cudaMemcpyDeviceToDevice));
 
     // 6. Cleanup
     CHECK_CUSPARSE( cusparseDestroySpVec(vec_permutation) )
@@ -2272,7 +2322,7 @@ __global__ void init_indices(int* ptr, int nnz) {
 // Helper kernel to permute data based on sorted indices
 // out[i] = in[ sorted_indices[i] ]
 __global__ void permute_data(const int* in_cols, int* out_cols, 
-                             const float* in_vals, float* out_vals, 
+                             const double* in_vals, double* out_vals, 
                              const int* sorted_indices, int nnz) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     if (i < nnz) {
@@ -2283,12 +2333,12 @@ __global__ void permute_data(const int* in_cols, int* out_cols,
 }
 
 
-void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
+void sort_coo_cub(int* d_rows, int* d_cols, double* d_vals, int nnz) {
     
     // Pointers for sorted/temp arrays
     int *d_indices, *d_indices_sorted;
     int *d_rows_sorted, *d_cols_sorted; 
-    float *d_vals_sorted;
+    double *d_vals_sorted;
     
     // 1. Allocate Temporary Buffers
     //    We need an index array to track where the rows move, so we can move cols/vals later.
@@ -2298,7 +2348,7 @@ void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
     
     //    Allocation of output buffers for cols/vals
     CUDA_CHECK(cudaMalloc((void**)&d_cols_sorted, nnz * sizeof(int))); 
-    CUDA_CHECK(cudaMalloc((void**)&d_vals_sorted, nnz * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&d_vals_sorted, nnz * sizeof(double)));
 
     // 2. Initialize Permutation Index [0, 1, 2, ..., NNZ-1]
     int blockSize = 256;
@@ -2336,7 +2386,7 @@ void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
     //     to the original locations unless you change the function signature to accept int**).
     CUDA_CHECK(cudaMemcpy(d_rows, d_rows_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
     CUDA_CHECK(cudaMemcpy(d_cols, d_cols_sorted, nnz * sizeof(int), cudaMemcpyDeviceToDevice));
-    CUDA_CHECK(cudaMemcpy(d_vals, d_vals_sorted, nnz * sizeof(float), cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(d_vals, d_vals_sorted, nnz * sizeof(double), cudaMemcpyDeviceToDevice));
 
     // Cleanup
     CUDA_CHECK(cudaFree(d_indices)); 
@@ -2372,20 +2422,20 @@ void sort_coo_cub(int* d_rows, int* d_cols, float* d_vals, int nnz) {
  * @note Mathematically, this computes half the squared norm ($0.5 \times ||x||^2$). 
  *
  * @param handle   A pre-initialized cuBLAS handle to manage GPU context and streams.
- * @param residual Pointer to the single-precision float array residing in device (GPU) memory.
+ * @param residual Pointer to the single-precision double array residing in device (GPU) memory.
  * @param n        The number of elements in the `residual` array.
- * @return float   The computed sum of the squared elements, multiplied by 0.5 written bask to (CPU) memory.
+ * @return double   The computed sum of the squared elements, multiplied by 0.5 written bask to (CPU) memory.
  */
-float square_norm(cublasHandle_t handle, float * residual, int n)
+double square_norm(cublasHandle_t handle, double * residual, int n)
 {
-    float result = 0.0f;
+    double result = 0.0;
     
     // Ensure the scalar result is written directly to the host variable 'result'
     CUBLAS_CHECK(cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST));
     
-    CUBLAS_CHECK(cublasSdot(handle, n, residual, 1, residual, 1, &result));
+    CUBLAS_CHECK(cublasDdot(handle, n, residual, 1, residual, 1, &result));
     
-    return result * 0.5f;
+    return result * 0.5;
 }
 
 /**
@@ -2399,20 +2449,20 @@ float square_norm(cublasHandle_t handle, float * residual, int n)
  * or overflow that can happen when squaring very large or very small numbers.
  *
  * @param handle   A pre-initialized cuBLAS handle to manage GPU context and streams.
- * @param residual Pointer to the single-precision float array residing in device (GPU) memory.
+ * @param residual Pointer to the single-precision double array residing in device (GPU) memory.
  * @param n        The number of elements in the `residual` array.
- * @return float   The computed exact L2 norm of the array, multiplied by 0.5.
+ * @return double   The computed exact L2 norm of the array, multiplied by 0.5.
  */
-float L2_norm_squared(cublasHandle_t handle, float * residual, int n)
+double L2_norm_squared(cublasHandle_t handle, double * residual, int n)
 {
-    float result = 0.0f;
+    double result = 0.0;
     
     // Ensure the scalar result is written directly to the host variable 'result'
     CUBLAS_CHECK(cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST));
     
     // Compute the exact L2 norm (Euclidean norm) of 'residual'
     // Parameters: handle, n, X, strideX, output_result
-    CUBLAS_CHECK(cublasSnrm2(handle, n, residual, 1, &result));
+    CUBLAS_CHECK(cublasDnrm2(handle, n, residual, 1, &result));
     
     return result * result ;
 }
@@ -2429,7 +2479,7 @@ float L2_norm_squared(cublasHandle_t handle, float * residual, int n)
  * @param[in]  w      Device pointer to the z-velocity component array.
  * @param[out] velmag Device pointer to the array where the calculated magnitudes will be stored.
  */
-__global__ void vel_mag_kernel(int n, const float* u, const float* v, const float* w, float* velmag) {
+__global__ void vel_mag_kernel(int n, const double* u, const double* v, const double* w, double* velmag) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
         velmag[i] = sqrtf(u[i] * u[i] + v[i] * v[i] + w[i] * w[i]);
@@ -2449,14 +2499,14 @@ __global__ void vel_mag_kernel(int n, const float* u, const float* v, const floa
  * @param[in] d_u  Device pointer to the input u-component vector.
  * @param[in] d_v  Device pointer to the input v-component vector.
  * @param[in] d_w  Device pointer to the input w-component vector.
- * * @return float* A pointer to the newly allocated device memory containing the 
+ * * @return double* A pointer to the newly allocated device memory containing the 
  * velocity magnitude vector. Returns nullptr if allocation fails.
  */
-float* compute_vel_mag(int n, float* d_u, float* d_v, float* d_w) {
-    float* d_velmag = nullptr;
+double* compute_vel_mag(int n, double* d_u, double* d_v, double* d_w) {
+    double* d_velmag = nullptr;
 
     // 1. Allocate GPU memory for the result vector
-    size_t size = n * sizeof(float);
+    size_t size = n * sizeof(double);
     CUDA_CHECK(cudaMalloc((void**)&d_velmag, size));
 
     // 2. Configure execution parameters
@@ -2480,14 +2530,14 @@ float* compute_vel_mag(int n, float* d_u, float* d_v, float* d_w) {
  *
  * @param d_ptr Pointer to the source data in GPU memory.
  * @param n     Number of elements (not bytes) to copy.
- * @return std::vector<float> The populated host vector.
+ * @return std::vector<double> The populated host vector.
  */
-std::vector<float> copy_gpu_array_host(const float* d_ptr, int n) {
+std::vector<double> copy_gpu_array_host(const double* d_ptr, int n) {
     // 1. Create the vector and reserve/resize immediately.
-    std::vector<float> h_vec(n);
+    std::vector<double> h_vec(n);
 
     // 2. Perform a single direct copy from Device to Host.
-    CUDA_CHECK(cudaMemcpy(h_vec.data(), d_ptr, n * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_vec.data(), d_ptr, n * sizeof(double), cudaMemcpyDeviceToHost));
 
     // 3. Return by value. 
     // Modern C++ (C++11 and later) uses "Move Semantics." 
@@ -2502,7 +2552,7 @@ std::vector<float> copy_gpu_array_host(const float* d_ptr, int n) {
  * @param[in]     constant The scalar value to add to each element.
  * @param[in]     N        The total number of elements in the vector.
  */
-__global__ void addConstantKernel(float *d_vec, float constant, int N) {
+__global__ void addConstantKernel(double *d_vec, double constant, int N) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     
     if (idx < N) {
@@ -2520,7 +2570,7 @@ __global__ void addConstantKernel(float *d_vec, float constant, int N) {
  * @param[in]     constant The scalar value to add to each element.
  * @param[in]     N        The total number of elements in the vector.
  */
-void addConstantToVector(float *d_vec, float constant, int N) {
+void addConstantToVector(double *d_vec, double constant, int N) {
 
     // Define execution configuration
     int threadsPerBlock = 256; 
@@ -2532,17 +2582,17 @@ void addConstantToVector(float *d_vec, float constant, int N) {
 }
 
 
-__global__ void check_vector_finite_kernel(const float* data, int n, int* flag) {
+__global__ void check_vector_finite_kernel(const double* data, int n, int* flag) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
-        if (isinf(data[i]) || isnan(data[i])) {
+        if (isinf(data[i]) || isnan(data[i] || data[i] > 1e12 || data[i] < 1e-12)) {
             atomicExch(flag, 1); // Set flag to 1 if a non-finite value is found
         }
     }
 }
 
 // Host wrapper to check for NaN/Inf in a device vector. Returns true if all values are finite.
-bool is_vector_finite(const float* d_data, int n) {
+bool is_vector_finite(const double* d_data, int n) {
     if (d_data == nullptr) {
         //returning true assumes it's not an error state.
         return true; 
@@ -2565,36 +2615,117 @@ bool is_vector_finite(const float* d_data, int n) {
     return h_flag == 0;
 }
 
-float* levenberg_marquardt_solver(
-    float Re,
-    std::vector<float>& y, // In-out: initial guess and final solution
+/**
+ * Checks if the system Ax=b is ill-conditioned or singular.
+ * * @param handle      cublasHandle
+ * @param d_residual  Device pointer to vector r = (b - Ax)
+ * @param d_b         Device pointer to vector b (Right Hand Side)
+ * @param d_x         Device pointer to vector x (Solution)
+ * @param n           Dimension of the system
+ * @param threshold   Tolerance (default 1e-6 for double precision)
+ * @return            true if the system is likely ill-defined/singular
+ */
+bool is_system_ill_defined(cublasHandle_t handle, 
+                           double* d_residual, 
+                           double* d_b, 
+                           double* d_x, 
+                           int n, 
+                           double threshold = 1e-7) 
+{
+    // 1. Compute Norm of RHS (b)
+    // We use sqrt() because your function returns the squared norm
+    double norm_b_sq = L2_norm_squared(handle, d_b, n);
+    double norm_b = sqrt(norm_b_sq);
+
+    // Handle edge case: if b is all zeros, the solution should be zero.
+    if (norm_b < 1e-15) {
+        printf("System Check: RHS is effectively zero.\n");
+        return false; 
+    }
+
+    // 2. Compute Norm of Residual (r = b - Ax)
+    double norm_r_sq = L2_norm_squared(handle, d_residual, n);
+    double norm_r = sqrt(norm_r_sq);
+
+    // 3. Compute Norm of Solution (x) for growth check
+    double norm_x_sq = L2_norm_squared(handle, d_x, n);
+    double norm_x = sqrt(norm_x_sq);
+
+    // --- Metrics ---
+
+    // Metric A: Relative Residual
+    // Ideally, this should be close to Machine Epsilon (1e-16 for double)
+    double rel_residual = norm_r / norm_b;
+
+    // Metric B: Expansion Factor (Heuristic)
+    // If ||x|| is 1e15 times larger than ||b||, the matrix is likely near-singular
+    double expansion = norm_x / norm_b;
+
+    // --- Diagnosis ---
+    
+    bool is_bad = false;
+
+    // Check 1: Did the solver fail to get close?
+    if (rel_residual > threshold) {
+        printf("WARNING: System is Ill-Conditioned or Singular.\n");
+        printf("  > High Relative Residual: %e (Threshold: %e)\n", rel_residual, threshold);
+        is_bad = true;
+    }
+
+    // Check 2: Did the solution explode?
+    // A huge expansion factor often implies condition number is very high.
+    if (expansion > 1e12) { // 1e12 is a safe heuristic for "too big"
+        printf("WARNING: Matrix is near-singular (Massive solution growth).\n");
+        printf("  > Expansion Factor ||x||/||b||: %e\n", expansion);
+        is_bad = true;
+    }
+
+    if (!is_bad) {
+        // Optional: Print success for debugging
+         printf("System Stable. Rel Residual: %e\n", rel_residual);
+    }
+
+    return is_bad;
+}
+
+double* levenberg_marquardt_solver(
+    double Re,
+    std::vector<double>& y, // In-out: initial guess and final solution
     const int xN, const int yN, const int zN,
-    const float* u_inlet, // Host pointer
-    const float dx, const float dy, const float dz,
+    const double* u_inlet, // Host pointer
+    const double dx, const double dy, const double dz,
     int max_iterations,
-    float initial_lambda,
-    float lambda_factor,
-    float tolerance
+    double initial_lambda,
+    double lambda_factor,
+    double tolerance
 ) {
     const int nCell = 4 * xN * yN * zN;
     cublasHandle_t cublas_handle;
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-    float* d_y;
-    CUDA_CHECK(cudaMalloc(&d_y, nCell * sizeof(float)));
-    CUDA_CHECK(cudaMemcpy(d_y, y.data(), nCell * sizeof(float), cudaMemcpyHostToDevice));
+    double* d_y;
+    CUDA_CHECK(cudaMalloc(&d_y, nCell * sizeof(double)));
+    CUDA_CHECK(cudaMemcpy(d_y, y.data(), nCell * sizeof(double), cudaMemcpyHostToDevice));
 
-    float lambda = initial_lambda;
+    double lambda = initial_lambda;
+
+    if (lambda_factor <= 1.0) {
+        std::cout << "ERROR: lambda_factor must be > 1.0, got " << lambda_factor << std::endl;
+        lambda_factor = 10.0; // Use default
+    }
 
     for (int iter = 0; iter < max_iterations; ++iter) {
         std::cout << "\n--- Iteration " << iter << ", Lambda: " << lambda << " ---" << std::endl;
+
+        // Sync device to host at start of iteration
+        CUDA_CHECK(cudaMemcpy(y.data(), d_y, nCell * sizeof(double), cudaMemcpyDeviceToHost));
 
         // 1. Calculate Jacobian and Residual
         auto [d_r, jacobian_coo] = Residuals_Sparse_Jacobian_finite_diff(Re, y.data(), xN, yN, zN, u_inlet, dx, dy, dz);
         auto [d_rows_coo, d_cols_coo, d_vals_coo, nnz] = jacobian_coo;
 
         // 2. Calculate current cost
-        float cost = square_norm(cublas_handle, d_r, nCell);
+        double cost = square_norm(cublas_handle, d_r, nCell);
         std::cout << "Current cost: " << std::scientific << cost << std::endl;
 
         // 3. Check for convergence
@@ -2615,7 +2746,7 @@ float* levenberg_marquardt_solver(
         for (int lm_attempt = 0; lm_attempt < 10; ++lm_attempt) {
             // 5. Compute J^T*J and J^T
             int *d_hessian_rows, *d_hessian_cols, *d_AT_cscOffsets, *d_AT_columns;
-            float *d_hessian_vals, *d_AT_values;
+            double *d_hessian_vals, *d_AT_values;
             int hessian_nnz;
 
             compute_AtA_debug(d_rows_coo, d_cols_coo, d_vals_coo, nnz, nCell, nCell,
@@ -2624,29 +2755,29 @@ float* levenberg_marquardt_solver(
 
             // 6. Create scaled identity matrix lambda*I
             int *d_identity_row_ptr, *d_identity_cols_ptr;
-            float *d_identity_vals_ptr;
+            double *d_identity_vals_ptr;
             CUDA_CHECK(cudaMalloc(&d_identity_row_ptr, (nCell + 1) * sizeof(int)));
             CUDA_CHECK(cudaMalloc(&d_identity_cols_ptr, nCell * sizeof(int)));
-            CUDA_CHECK(cudaMalloc(&d_identity_vals_ptr, nCell * sizeof(float)));
+            CUDA_CHECK(cudaMalloc(&d_identity_vals_ptr, nCell * sizeof(double)));
             create_identity_csr_and_scale(nCell, lambda, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr);
 
             // 7. Form LHS: A = J^T*J + lambda*I
             int *d_lhs_rows, *d_lhs_cols;
-            float *d_lhs_vals;
+            double *d_lhs_vals;
             int lhs_nnz;
-            add_csr_cusparse(1.0f, nCell, nCell, hessian_nnz, d_hessian_rows, d_hessian_cols, d_hessian_vals,
+            add_csr_cusparse(1.0, nCell, nCell, hessian_nnz, d_hessian_rows, d_hessian_cols, d_hessian_vals,
                              nCell, d_identity_row_ptr, d_identity_cols_ptr, d_identity_vals_ptr,
                              &lhs_nnz, &d_lhs_rows, &d_lhs_cols, &d_lhs_vals);
             
             // 8. Form RHS: b = -J^T*r
-            float* d_rhs = nullptr;
-            scale_and_multiply_on_gpu(nCell, nCell, nnz, d_AT_cscOffsets, d_AT_columns, d_AT_values, d_r, -1.0f, &d_rhs);
+            double* d_rhs = nullptr;
+            scale_and_multiply_on_gpu(nCell, nCell, nnz, d_AT_cscOffsets, d_AT_columns, d_AT_values, d_r, -1.0, &d_rhs);
+
 
             // 9. Solve the linear system for the step delta
-            float* d_delta = nullptr;
+            double* d_delta = nullptr;
             solve_system_gpu(nCell, lhs_nnz, d_lhs_rows, d_lhs_cols, d_lhs_vals, d_rhs, &d_delta);
-
-
+   
             // --- DIAGNOSTIC CHECK FOR SOLVER FAILURE ---
             if (!is_vector_finite(d_delta, nCell)) {
                 std::cerr << "\nFATAL ERROR: The linear solver failed and produced non-finite values (NaN or Inf) in the delta vector.\n"
@@ -2659,39 +2790,44 @@ float* levenberg_marquardt_solver(
                 step_accepted = false; 
                 break; // Break from the inner lm_attempt loop
             }
+            is_system_ill_defined(cublas_handle, d_r, d_rhs, d_delta, nCell);
             // print_gpu_array(d_delta, nCell);
-            std::cout << "L2 norm of the step(delta): " << L2_norm_squared(cublas_handle, d_delta, nCell) << " Square norm of step(delta): "<<square_norm(cublas_handle, d_delta, nCell)  << std::endl;
+            std::cout << "L2 norm of the step(delta): " << L2_norm_squared(cublas_handle, d_delta, nCell) << 
+            " Square norm of step(delta): "<<square_norm(cublas_handle, d_delta, nCell)<<  
+            " lambda: "<< lambda << std::endl <<std::endl;
             // --- END DIAGNOSTIC ---
 
 
             // 10. Propose new state: y_new = y + delta
-            float* d_y_new;
-            CUDA_CHECK(cudaMalloc(&d_y_new, nCell * sizeof(float)));
-            CUDA_CHECK(cudaMemcpy(d_y_new, d_y, nCell * sizeof(float), cudaMemcpyDeviceToDevice));
-            const float alpha = 1.0f;
-            CUBLAS_CHECK(cublasSaxpy(cublas_handle, nCell, &alpha, d_delta, 1, d_y_new, 1));
+            double* d_y_new;
+            CUDA_CHECK(cudaMalloc(&d_y_new, nCell * sizeof(double)));
+            CUDA_CHECK(cudaMemcpy(d_y_new, d_y, nCell * sizeof(double), cudaMemcpyDeviceToDevice));
+            const double alpha = 1.0;
+            CUBLAS_CHECK(cublasDaxpy(cublas_handle, nCell, &alpha, d_delta, 1, d_y_new, 1));
             
             // 11. Evaluate cost of the new state
-            std::vector<float> y_new_h = copy_gpu_array_host(d_y_new, nCell);
-            std::vector<float> r_new_h(nCell);
+            std::vector<double> y_new_h = copy_gpu_array_host(d_y_new, nCell);
+            std::vector<double> r_new_h(nCell);
             uv_velocity_single(r_new_h.data(), Re, y_new_h.data(), xN, yN, zN, u_inlet, dx, dy, dz);
             
-            float* d_r_new;
-            CUDA_CHECK(cudaMalloc(&d_r_new, nCell * sizeof(float)));
-            CUDA_CHECK(cudaMemcpy(d_r_new, r_new_h.data(), nCell * sizeof(float), cudaMemcpyHostToDevice));
+            double* d_r_new;
+            CUDA_CHECK(cudaMalloc(&d_r_new, nCell * sizeof(double)));
+            CUDA_CHECK(cudaMemcpy(d_r_new, r_new_h.data(), nCell * sizeof(double), cudaMemcpyHostToDevice));
             
-            float new_cost = square_norm(cublas_handle, d_r_new, nCell);
+            double new_cost = square_norm(cublas_handle, d_r_new, nCell);
 
             // 12. Accept or reject the step
             if (new_cost < cost) {
                 std::cout << "  --> Step ACCEPTED. New cost: " << new_cost << " (improvement: " << cost - new_cost << ")" << std::endl;
-                CUDA_CHECK(cudaMemcpy(d_y, d_y_new, nCell * sizeof(float), cudaMemcpyDeviceToDevice));
+                CUDA_CHECK(cudaMemcpy(d_y, d_y_new, nCell * sizeof(double), cudaMemcpyDeviceToDevice));
                 y = y_new_h; // Update host vector as well
-                lambda /= lambda_factor ;
+             
+                lambda = std::max(lambda / lambda_factor, 1e-12);
                 step_accepted = true;
             } else {
+             
                 std::cout << "  --> Step REJECTED. New cost: " << new_cost << " (no improvement)" << std::endl;
-                lambda *= 10;
+                lambda = std::min(lambda * lambda_factor, 1e12);
             }
 
             // Cleanup attempt-specific memory
@@ -2731,7 +2867,7 @@ float* levenberg_marquardt_solver(
     } // End of main iteration loop
 
     // 13. Finalize
-    // CUDA_CHECK(cudaMemcpy(y.data(), d_y, nCell * sizeof(float), cudaMemcpyDeviceToHost));
+    // CUDA_CHECK(cudaMemcpy(y.data(), d_y, nCell * sizeof(double), cudaMemcpyDeviceToHost));
     
     // CUDA_CHECK(cudaFree(d_y));
     CUBLAS_CHECK(cublasDestroy(cublas_handle));
@@ -2745,7 +2881,7 @@ float* levenberg_marquardt_solver(
 int main()
 {
     // Problem size
-    int xN = 5, yN = 5, zN = 5;
+    int xN = 10, yN = 5, zN = 5;
     // int xN = 100, yN = 2, zN = 2;
     const int nCell = 4 * xN * yN * zN;
 
@@ -2754,14 +2890,14 @@ int main()
     const int sizeZ = zN + 2;
 
     // Physicaleters
-    float mu = 0.001f;
-    float L = 1.0f;
-    float M = 0.2f;
-    float N = 0.2f;
-    float rho = 1.0f;
-    float u0 = 1.0f;
+    double mu = 0.001;
+    double L = 1.0;
+    double M = 0.2;
+    double N = 0.2;
+    double rho = 1.0;
+    double u0 = 1.0;
 
-    float Re = (rho * (M / 2.0f) * u0) / mu;
+    double Re = (rho * (M / 2.0) * u0) / mu;
 
     std::cout << "Problem Setup:" << std::endl;
     std::cout << "  Grid: " << xN << " x " << yN << " x " << zN << std::endl;
@@ -2769,9 +2905,9 @@ int main()
     std::cout << "  Reynolds number: " << Re << std::endl;
 
     // Generate coordinates
-    std::vector<float> xcoor(sizeX * sizeY * sizeZ);
-    std::vector<float> ycoor(sizeX * sizeY * sizeZ);
-    std::vector<float> zcoor(sizeX * sizeY * sizeZ);
+    std::vector<double> xcoor(sizeX * sizeY * sizeZ);
+    std::vector<double> ycoor(sizeX * sizeY * sizeZ);
+    std::vector<double> zcoor(sizeX * sizeY * sizeZ);
 
     //Will be use for plotting
     auto [dx, dy, dz] = coordinates(xcoor, ycoor, zcoor, xN, yN, zN, L, M, N);
@@ -2780,35 +2916,36 @@ int main()
 
     // Create inlet velocity profile
     int inletSize = sizeY * sizeZ;
-    std::vector<float> u_inlet(inletSize);
+    std::vector<double> u_inlet(inletSize);
 
     for (int j = 0; j < sizeY; ++j) {
         for (int k = 0; k < sizeZ; ++k) {
-            float yv = M * j / (sizeY - 1);
-            float zv = N * k / (sizeZ - 1);
+            double yv = M * j / (sizeY - 1);
+            double zv = N * k / (sizeZ - 1);
             u_inlet[idx_3d(j, k, 0, sizeZ, 1)] = 
-                16.0f * u0 * (yv / M) * (1.0f - yv / M) * (zv / N) * (1.0f - zv / N);
+                16.0 * u0 * (yv / M) * (1.0 - yv / M) * (zv / N) * (1.0 - zv / N);
                 //  u_inlet[idx_3d(j, k, 0, sizeZ, 1)] = 0;
         }
     }
 
     // Initial guess
-    std::vector<float> y(nCell, 0.1f);
+    std::vector<double> y(nCell, 0.1);
     int blockSize = xN * yN * zN;
     for (int i = 0; i < blockSize; i++) {
         y[i] = u0;
     }
         
-    // std::vector<float> y(nCell, 0.0f); //Debug 
+    
 
     
     // //------------------------------------------------------
     // //Run the method
     // //------------------------------------------------------
     // //
-        float *d_solution=nullptr;
+        double *d_solution=nullptr;
 
-        d_solution=levenberg_marquardt_solver(Re, y, xN, yN, zN, u_inlet.data(), dx, dy, dz, 20, 0.01, 10, 1e-7);
+        d_solution=levenberg_marquardt_solver(Re, y, xN, yN, zN, u_inlet.data(), dx, dy, dz, 25,
+         0.1, 10, 1e-10);
     //
 
     //------------------------------------------------------
@@ -2818,7 +2955,7 @@ int main()
         auto [d_uvel, d_vvel, d_wvel, d_press]=boundary_conditions_final(d_solution, xN, yN, zN, u_inlet.data());
         int total_size = sizeX * sizeY * sizeZ;
 
-        float *d_vel_mag=compute_vel_mag(total_size, d_uvel, d_vvel, d_wvel);
+        double *d_vel_mag=compute_vel_mag(total_size, d_uvel, d_vvel, d_wvel);
         // print_gpu_array(d_vel_mag,total_size);
         //Copy back to host
         // print_gpu_array(d_uvel, total_size);

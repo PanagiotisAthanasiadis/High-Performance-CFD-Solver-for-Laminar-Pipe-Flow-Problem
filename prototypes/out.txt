@@ -1,0 +1,1199 @@
+Problem Setup:
+  Grid: 5 x 5 x 5
+  Total cells: 500
+  Reynolds number: 2000
+  dx = 0.166667, dy = 0.0333333, dz = 0.0333333
+
+--- Iteration 0, Lambda: 0.001 ---
+Building Jacobian (split kernels)...
+Thread 0: 0/500
+Jacobian: 4675 non-zeros
+
+Current cost: 1.150319e-05
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.837127e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.729958e-04 Square norm of step(delta): 1.364979e-04 lambda: 1.000000e-03
+
+  --> Step REJECTED. New cost: 1.160746e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.837127e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.844504e-06 Square norm of step(delta): 1.422252e-06 lambda: 1.000000e-02
+
+  --> Step REJECTED. New cost: 1.151356e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.837127e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.856809e-08 Square norm of step(delta): 1.428405e-08 lambda: 1.000000e-01
+
+  --> Step REJECTED. New cost: 1.150427e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.837127e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.858049e-10 Square norm of step(delta): 1.429024e-10 lambda: 1.000000e+00
+
+  --> Step REJECTED. New cost: 1.150329e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.837127e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.858173e-12 Square norm of step(delta): 1.429087e-12 lambda: 1.000000e+01
+
+  --> Step ACCEPTED. New cost: 1.150315e-05 (improvement: 3.848317e-11)
+
+--- Iteration 1, Lambda: 1.000000e+00 ---
+Building Jacobian (split kernels)...
+Thread 0: 0/500
+Jacobian: 128486 non-zeros
+Current cost: 1.150320e-05
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 1.167554e-06 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 1.630843e+07 Square norm of step(delta): 8.154215e+06 lambda: 1.000000e+00
+
+  --> Step REJECTED. New cost: 2.021677e+06 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 1.167554e-06 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 1.630921e+05 Square norm of step(delta): 8.154606e+04 lambda: 1.000000e+01
+
+  --> Step REJECTED. New cost: 2.131196e+02 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 1.167554e-06 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 1.630943e+03 Square norm of step(delta): 8.154714e+02 lambda: 1.000000e+02
+
+  --> Step REJECTED. New cost: 4.329318e-02 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 1.167554e-06 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 1.630944e+01 Square norm of step(delta): 8.154722e+00 lambda: 1.000000e+03
+
+  --> Step REJECTED. New cost: 1.402225e-04 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 1.167554e-06 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 1.630944e-01 Square norm of step(delta): 8.154722e-02 lambda: 1.000000e+04
+
+  --> Step REJECTED. New cost: 1.191834e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 1.167554e-06 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 1.630944e-03 Square norm of step(delta): 8.154722e-04 lambda: 1.000000e+05
+
+  --> Step ACCEPTED. New cost: 1.143179e-05 (improvement: 7.141109e-08)
+
+--- Iteration 2, Lambda: 1.000000e+04 ---
+Building Jacobian (split kernels)...
+Thread 0: 0/500
+Jacobian: 4675 non-zeros
+Current cost: 1.143179e-05
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-18 Square norm of step(delta): 1.409508e-18 lambda: 1.000000e+04
+
+  --> Step REJECTED. New cost: 1.542280e-03 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-20 Square norm of step(delta): 1.409508e-20 lambda: 1.000000e+05
+
+  --> Step REJECTED. New cost: 1.143179e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-22 Square norm of step(delta): 1.409508e-22 lambda: 1.000000e+06
+
+  --> Step REJECTED. New cost: 1.148436e-04 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-24 Square norm of step(delta): 1.409508e-24 lambda: 1.000000e+07
+
+  --> Step REJECTED. New cost: 1.143179e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-26 Square norm of step(delta): 1.409508e-26 lambda: 1.000000e+08
+
+  --> Step REJECTED. New cost: 1.969062e-04 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-28 Square norm of step(delta): 1.409508e-28 lambda: 1.000000e+09
+
+  --> Step REJECTED. New cost: 1.143179e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-30 Square norm of step(delta): 1.409508e-30 lambda: 1.000000e+10
+
+  --> Step REJECTED. New cost: 1.143179e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-32 Square norm of step(delta): 1.409508e-32 lambda: 1.000000e+11
+
+  --> Step REJECTED. New cost: 1.143179e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-34 Square norm of step(delta): 1.409508e-34 lambda: 1.000000e+12
+
+  --> Step REJECTED. New cost: 1.143179e-05 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 2.847890e+02 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 2.819016e-34 Square norm of step(delta): 1.409508e-34 lambda: 1.000000e+12
+
+  --> Step REJECTED. New cost: 1.143179e-05 (no improvement)
+Warning: Failed to find a better step. Stopping.
+Levenberg-Marquardt solver finished.
+
+Computation complete!
+Problem Setup:
+  Grid: 10 x 10 x 10
+  Total cells: 4000
+  Reynolds number: 2000
+  dx = 0.0909091, dy = 0.0181818, dz = 0.0181818
+
+--- Iteration 0, Lambda: 0.001 ---
+Building Jacobian (split kernels)...
+Thread 0: 0/4000
+Thread 0: 1000/4000
+Thread 0: 2000/4000
+Thread 0: 3000/4000
+Jacobian: 41200 non-zeros
+Current cost: 4.678772e-06
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 1.047377e+03 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 8.494955e-06 Square norm of step(delta): 4.247478e-06 lambda: 1.000000e-03
+
+  --> Step REJECTED. New cost: 4.681844e-06 (no improvement)
+WARNING: System is Ill-Conditioned or Singular.
+  > High Relative Residual: 1.047377e+03 (Threshold: 1.000000e-07)
+L2 norm of the step(delta): 8.526598e-08 Square norm of step(delta): 4.263299e-08 lambda: 1.000000e-02
+
+  --> Step ACCEPTED. New cost: 4.147816e-06 (improvement: 5.309561e-07)
+
+--- Iteration 1, Lambda: 1.000000e-03 ---
+Building Jacobian (split kernels)...
+Thread 0: 0/4000
+Thread 0: 1000/4000
+Thread 0: 2000/4000
+Error: Jacobian buffer overflow! Needed 4000393, had 4000000
+Error: Jacobian buffer overflow! Needed 4001799, had 4000000
+Error: Jacobian buffer overflow! Needed 4003205, had 4000000
+Error: Jacobian buffer overflow! Needed 4004611, had 4000000
+Error: Jacobian buffer overflow! Needed 4006013, had 4000000
+Error: Jacobian buffer overflow! Needed 4007410, had 4000000
+Error: Jacobian buffer overflow! Needed 4008808, had 4000000
+Error: Jacobian buffer overflow! Needed 4010210, had 4000000
+Error: Jacobian buffer overflow! Needed 4011616, had 4000000
+Error: Jacobian buffer overflow! Needed 4013022, had 4000000
+Error: Jacobian buffer overflow! Needed 4014428, had 4000000
+Error: Jacobian buffer overflow! Needed 4015834, had 4000000
+Error: Jacobian buffer overflow! Needed 4017240, had 4000000
+Error: Jacobian buffer overflow! Needed 4018646, had 4000000
+Error: Jacobian buffer overflow! Needed 4020048, had 4000000
+Error: Jacobian buffer overflow! Needed 4021445, had 4000000
+Error: Jacobian buffer overflow! Needed 4022843, had 4000000
+Error: Jacobian buffer overflow! Needed 4024245, had 4000000
+Error: Jacobian buffer overflow! Needed 4025651, had 4000000
+Error: Jacobian buffer overflow! Needed 4027057, had 4000000
+Error: Jacobian buffer overflow! Needed 4028463, had 4000000
+Error: Jacobian buffer overflow! Needed 4029869, had 4000000
+Error: Jacobian buffer overflow! Needed 4031275, had 4000000
+Error: Jacobian buffer overflow! Needed 4032681, had 4000000
+Error: Jacobian buffer overflow! Needed 4034083, had 4000000
+Error: Jacobian buffer overflow! Needed 4035480, had 4000000
+Error: Jacobian buffer overflow! Needed 4036877, had 4000000
+Error: Jacobian buffer overflow! Needed 4038278, had 4000000
+Error: Jacobian buffer overflow! Needed 4039683, had 4000000
+Error: Jacobian buffer overflow! Needed 4041088, had 4000000
+Error: Jacobian buffer overflow! Needed 4042493, had 4000000
+Error: Jacobian buffer overflow! Needed 4043898, had 4000000
+Error: Jacobian buffer overflow! Needed 4045303, had 4000000
+Thread 0: 3000/4000
+Error: Jacobian buffer overflow! Needed 4046708, had 4000000
+Error: Jacobian buffer overflow! Needed 4048110, had 4000000
+Error: Jacobian buffer overflow! Needed 4049507, had 4000000
+Error: Jacobian buffer overflow! Needed 4050900, had 4000000
+Error: Jacobian buffer overflow! Needed 4052295, had 4000000
+Error: Jacobian buffer overflow! Needed 4053689, had 4000000
+Error: Jacobian buffer overflow! Needed 4055083, had 4000000
+Error: Jacobian buffer overflow! Needed 4056479, had 4000000
+Error: Jacobian buffer overflow! Needed 4057875, had 4000000
+Error: Jacobian buffer overflow! Needed 4059273, had 4000000
+Error: Jacobian buffer overflow! Needed 4060671, had 4000000
+Error: Jacobian buffer overflow! Needed 4062068, had 4000000
+Error: Jacobian buffer overflow! Needed 4063463, had 4000000
+Error: Jacobian buffer overflow! Needed 4064856, had 4000000
+Error: Jacobian buffer overflow! Needed 4066250, had 4000000
+Error: Jacobian buffer overflow! Needed 4067646, had 4000000
+Error: Jacobian buffer overflow! Needed 4069042, had 4000000
+Error: Jacobian buffer overflow! Needed 4070440, had 4000000
+Error: Jacobian buffer overflow! Needed 4071838, had 4000000
+Error: Jacobian buffer overflow! Needed 4073236, had 4000000
+Error: Jacobian buffer overflow! Needed 4074634, had 4000000
+Error: Jacobian buffer overflow! Needed 4076030, had 4000000
+Error: Jacobian buffer overflow! Needed 4077425, had 4000000
+Error: Jacobian buffer overflow! Needed 4078821, had 4000000
+Error: Jacobian buffer overflow! Needed 4080221, had 4000000
+Error: Jacobian buffer overflow! Needed 4081623, had 4000000
+Error: Jacobian buffer overflow! Needed 4083025, had 4000000
+Error: Jacobian buffer overflow! Needed 4084427, had 4000000
+Error: Jacobian buffer overflow! Needed 4085829, had 4000000
+Error: Jacobian buffer overflow! Needed 4087231, had 4000000
+Error: Jacobian buffer overflow! Needed 4088633, had 4000000
+Error: Jacobian buffer overflow! Needed 4090032, had 4000000
+Error: Jacobian buffer overflow! Needed 4091429, had 4000000
+Error: Jacobian buffer overflow! Needed 4092826, had 4000000
+Error: Jacobian buffer overflow! Needed 4094227, had 4000000
+Error: Jacobian buffer overflow! Needed 4095631, had 4000000
+Error: Jacobian buffer overflow! Needed 4097035, had 4000000
+Error: Jacobian buffer overflow! Needed 4098439, had 4000000
+Error: Jacobian buffer overflow! Needed 4099842, had 4000000
+Error: Jacobian buffer overflow! Needed 4101245, had 4000000
+Error: Jacobian buffer overflow! Needed 4102648, had 4000000
+Error: Jacobian buffer overflow! Needed 4104050, had 4000000
+Error: Jacobian buffer overflow! Needed 4105448, had 4000000
+Error: Jacobian buffer overflow! Needed 4106846, had 4000000
+Error: Jacobian buffer overflow! Needed 4108249, had 4000000
+Error: Jacobian buffer overflow! Needed 4109653, had 4000000
+Error: Jacobian buffer overflow! Needed 4111057, had 4000000
+Error: Jacobian buffer overflow! Needed 4112461, had 4000000
+Error: Jacobian buffer overflow! Needed 4113864, had 4000000
+Error: Jacobian buffer overflow! Needed 4115267, had 4000000
+Error: Jacobian buffer overflow! Needed 4116670, had 4000000
+Error: Jacobian buffer overflow! Needed 4118072, had 4000000
+Error: Jacobian buffer overflow! Needed 4119471, had 4000000
+Error: Jacobian buffer overflow! Needed 4120869, had 4000000
+Error: Jacobian buffer overflow! Needed 4122271, had 4000000
+Error: Jacobian buffer overflow! Needed 4123674, had 4000000
+Error: Jacobian buffer overflow! Needed 4125077, had 4000000
+Error: Jacobian buffer overflow! Needed 4126480, had 4000000
+Error: Jacobian buffer overflow! Needed 4127883, had 4000000
+Error: Jacobian buffer overflow! Needed 4129286, had 4000000
+Error: Jacobian buffer overflow! Needed 4130689, had 4000000
+Error: Jacobian buffer overflow! Needed 4132091, had 4000000
+Error: Jacobian buffer overflow! Needed 4133489, had 4000000
+Error: Jacobian buffer overflow! Needed 4134886, had 4000000
+Error: Jacobian buffer overflow! Needed 4136286, had 4000000
+Error: Jacobian buffer overflow! Needed 4137689, had 4000000
+Error: Jacobian buffer overflow! Needed 4139092, had 4000000
+Error: Jacobian buffer overflow! Needed 4140495, had 4000000
+Error: Jacobian buffer overflow! Needed 4141898, had 4000000
+Error: Jacobian buffer overflow! Needed 4143301, had 4000000
+Error: Jacobian buffer overflow! Needed 4144704, had 4000000
+Error: Jacobian buffer overflow! Needed 4146104, had 4000000
+Error: Jacobian buffer overflow! Needed 4147501, had 4000000
+Error: Jacobian buffer overflow! Needed 4148898, had 4000000
+Error: Jacobian buffer overflow! Needed 4150299, had 4000000
+Error: Jacobian buffer overflow! Needed 4151702, had 4000000
+Error: Jacobian buffer overflow! Needed 4153105, had 4000000
+Error: Jacobian buffer overflow! Needed 4154508, had 4000000
+Error: Jacobian buffer overflow! Needed 4155911, had 4000000
+Error: Jacobian buffer overflow! Needed 4157314, had 4000000
+Error: Jacobian buffer overflow! Needed 4158717, had 4000000
+Error: Jacobian buffer overflow! Needed 4160118, had 4000000
+Error: Jacobian buffer overflow! Needed 4161514, had 4000000
+Error: Jacobian buffer overflow! Needed 4162911, had 4000000
+Error: Jacobian buffer overflow! Needed 4164314, had 4000000
+Error: Jacobian buffer overflow! Needed 4165717, had 4000000
+Error: Jacobian buffer overflow! Needed 4167120, had 4000000
+Error: Jacobian buffer overflow! Needed 4168523, had 4000000
+Error: Jacobian buffer overflow! Needed 4169926, had 4000000
+Error: Jacobian buffer overflow! Needed 4171329, had 4000000
+Error: Jacobian buffer overflow! Needed 4172732, had 4000000
+Error: Jacobian buffer overflow! Needed 4174133, had 4000000
+Error: Jacobian buffer overflow! Needed 4175529, had 4000000
+Error: Jacobian buffer overflow! Needed 4176926, had 4000000
+Error: Jacobian buffer overflow! Needed 4178326, had 4000000
+Error: Jacobian buffer overflow! Needed 4179728, had 4000000
+Error: Jacobian buffer overflow! Needed 4181130, had 4000000
+Error: Jacobian buffer overflow! Needed 4182532, had 4000000
+Error: Jacobian buffer overflow! Needed 4183934, had 4000000
+Error: Jacobian buffer overflow! Needed 4185336, had 4000000
+Error: Jacobian buffer overflow! Needed 4186738, had 4000000
+Error: Jacobian buffer overflow! Needed 4188138, had 4000000
+Error: Jacobian buffer overflow! Needed 4189534, had 4000000
+Error: Jacobian buffer overflow! Needed 4190927, had 4000000
+Error: Jacobian buffer overflow! Needed 4192321, had 4000000
+Error: Jacobian buffer overflow! Needed 4193715, had 4000000
+Error: Jacobian buffer overflow! Needed 4195109, had 4000000
+Error: Jacobian buffer overflow! Needed 4196503, had 4000000
+Error: Jacobian buffer overflow! Needed 4197897, had 4000000
+Error: Jacobian buffer overflow! Needed 4199291, had 4000000
+Error: Jacobian buffer overflow! Needed 4200685, had 4000000
+Error: Jacobian buffer overflow! Needed 4202079, had 4000000
+Error: Jacobian buffer overflow! Needed 4203472, had 4000000
+Error: Jacobian buffer overflow! Needed 4204865, had 4000000
+Error: Jacobian buffer overflow! Needed 4206258, had 4000000
+Error: Jacobian buffer overflow! Needed 4207651, had 4000000
+Error: Jacobian buffer overflow! Needed 4209044, had 4000000
+Error: Jacobian buffer overflow! Needed 4210437, had 4000000
+Error: Jacobian buffer overflow! Needed 4211830, had 4000000
+Error: Jacobian buffer overflow! Needed 4213223, had 4000000
+Error: Jacobian buffer overflow! Needed 4214616, had 4000000
+Error: Jacobian buffer overflow! Needed 4216009, had 4000000
+Error: Jacobian buffer overflow! Needed 4217402, had 4000000
+Error: Jacobian buffer overflow! Needed 4218795, had 4000000
+Error: Jacobian buffer overflow! Needed 4220190, had 4000000
+Error: Jacobian buffer overflow! Needed 4221586, had 4000000
+Error: Jacobian buffer overflow! Needed 4222982, had 4000000
+Error: Jacobian buffer overflow! Needed 4224378, had 4000000
+Error: Jacobian buffer overflow! Needed 4225774, had 4000000
+Error: Jacobian buffer overflow! Needed 4227170, had 4000000
+Error: Jacobian buffer overflow! Needed 4228565, had 4000000
+Error: Jacobian buffer overflow! Needed 4229959, had 4000000
+Error: Jacobian buffer overflow! Needed 4231352, had 4000000
+Error: Jacobian buffer overflow! Needed 4232745, had 4000000
+Error: Jacobian buffer overflow! Needed 4234140, had 4000000
+Error: Jacobian buffer overflow! Needed 4235536, had 4000000
+Error: Jacobian buffer overflow! Needed 4236932, had 4000000
+Error: Jacobian buffer overflow! Needed 4238328, had 4000000
+Error: Jacobian buffer overflow! Needed 4239723, had 4000000
+Error: Jacobian buffer overflow! Needed 4241117, had 4000000
+Error: Jacobian buffer overflow! Needed 4242511, had 4000000
+Error: Jacobian buffer overflow! Needed 4243905, had 4000000
+Error: Jacobian buffer overflow! Needed 4245298, had 4000000
+Error: Jacobian buffer overflow! Needed 4246691, had 4000000
+Error: Jacobian buffer overflow! Needed 4248085, had 4000000
+Error: Jacobian buffer overflow! Needed 4249479, had 4000000
+Error: Jacobian buffer overflow! Needed 4250873, had 4000000
+Error: Jacobian buffer overflow! Needed 4252267, had 4000000
+Error: Jacobian buffer overflow! Needed 4253661, had 4000000
+Error: Jacobian buffer overflow! Needed 4255055, had 4000000
+Error: Jacobian buffer overflow! Needed 4256449, had 4000000
+Error: Jacobian buffer overflow! Needed 4257843, had 4000000
+Error: Jacobian buffer overflow! Needed 4259236, had 4000000
+Error: Jacobian buffer overflow! Needed 4260629, had 4000000
+Error: Jacobian buffer overflow! Needed 4262023, had 4000000
+Error: Jacobian buffer overflow! Needed 4263417, had 4000000
+Error: Jacobian buffer overflow! Needed 4264811, had 4000000
+Error: Jacobian buffer overflow! Needed 4266205, had 4000000
+Error: Jacobian buffer overflow! Needed 4267599, had 4000000
+Error: Jacobian buffer overflow! Needed 4268993, had 4000000
+Error: Jacobian buffer overflow! Needed 4270387, had 4000000
+Error: Jacobian buffer overflow! Needed 4271781, had 4000000
+Error: Jacobian buffer overflow! Needed 4273174, had 4000000
+Error: Jacobian buffer overflow! Needed 4274567, had 4000000
+Error: Jacobian buffer overflow! Needed 4275961, had 4000000
+Error: Jacobian buffer overflow! Needed 4277355, had 4000000
+Error: Jacobian buffer overflow! Needed 4278749, had 4000000
+Error: Jacobian buffer overflow! Needed 4280143, had 4000000
+Error: Jacobian buffer overflow! Needed 4281537, had 4000000
+Error: Jacobian buffer overflow! Needed 4282931, had 4000000
+Error: Jacobian buffer overflow! Needed 4284325, had 4000000
+Error: Jacobian buffer overflow! Needed 4285719, had 4000000
+Error: Jacobian buffer overflow! Needed 4287112, had 4000000
+Error: Jacobian buffer overflow! Needed 4288505, had 4000000
+Error: Jacobian buffer overflow! Needed 4289900, had 4000000
+Error: Jacobian buffer overflow! Needed 4291296, had 4000000
+Error: Jacobian buffer overflow! Needed 4292692, had 4000000
+Error: Jacobian buffer overflow! Needed 4294088, had 4000000
+Error: Jacobian buffer overflow! Needed 4295484, had 4000000
+Error: Jacobian buffer overflow! Needed 4296880, had 4000000
+Error: Jacobian buffer overflow! Needed 4298275, had 4000000
+Error: Jacobian buffer overflow! Needed 4299669, had 4000000
+Error: Jacobian buffer overflow! Needed 4301062, had 4000000
+Error: Jacobian buffer overflow! Needed 4302456, had 4000000
+Error: Jacobian buffer overflow! Needed 4303852, had 4000000
+Error: Jacobian buffer overflow! Needed 4305248, had 4000000
+Error: Jacobian buffer overflow! Needed 4306644, had 4000000
+Error: Jacobian buffer overflow! Needed 4308040, had 4000000
+Error: Jacobian buffer overflow! Needed 4309435, had 4000000
+Error: Jacobian buffer overflow! Needed 4310829, had 4000000
+Error: Jacobian buffer overflow! Needed 4312223, had 4000000
+Error: Jacobian buffer overflow! Needed 4313617, had 4000000
+Error: Jacobian buffer overflow! Needed 4315010, had 4000000
+Error: Jacobian buffer overflow! Needed 4316403, had 4000000
+Error: Jacobian buffer overflow! Needed 4317798, had 4000000
+Error: Jacobian buffer overflow! Needed 4319194, had 4000000
+Error: Jacobian buffer overflow! Needed 4320589, had 4000000
+Error: Jacobian buffer overflow! Needed 4321983, had 4000000
+Error: Jacobian buffer overflow! Needed 4323377, had 4000000
+Error: Jacobian buffer overflow! Needed 4324771, had 4000000
+Error: Jacobian buffer overflow! Needed 4326166, had 4000000
+Error: Jacobian buffer overflow! Needed 4327562, had 4000000
+Error: Jacobian buffer overflow! Needed 4328956, had 4000000
+Error: Jacobian buffer overflow! Needed 4330349, had 4000000
+Error: Jacobian buffer overflow! Needed 4331742, had 4000000
+Error: Jacobian buffer overflow! Needed 4333135, had 4000000
+Error: Jacobian buffer overflow! Needed 4334528, had 4000000
+Error: Jacobian buffer overflow! Needed 4335921, had 4000000
+Error: Jacobian buffer overflow! Needed 4337314, had 4000000
+Error: Jacobian buffer overflow! Needed 4338707, had 4000000
+Error: Jacobian buffer overflow! Needed 4340100, had 4000000
+Error: Jacobian buffer overflow! Needed 4341493, had 4000000
+Error: Jacobian buffer overflow! Needed 4342886, had 4000000
+Error: Jacobian buffer overflow! Needed 4344279, had 4000000
+Error: Jacobian buffer overflow! Needed 4345672, had 4000000
+Error: Jacobian buffer overflow! Needed 4347065, had 4000000
+Error: Jacobian buffer overflow! Needed 4348458, had 4000000
+Error: Jacobian buffer overflow! Needed 4349851, had 4000000
+Error: Jacobian buffer overflow! Needed 4351244, had 4000000
+Error: Jacobian buffer overflow! Needed 4352637, had 4000000
+Error: Jacobian buffer overflow! Needed 4354030, had 4000000
+Error: Jacobian buffer overflow! Needed 4355423, had 4000000
+Error: Jacobian buffer overflow! Needed 4356816, had 4000000
+Error: Jacobian buffer overflow! Needed 4358209, had 4000000
+Error: Jacobian buffer overflow! Needed 4359606, had 4000000
+Error: Jacobian buffer overflow! Needed 4361004, had 4000000
+Error: Jacobian buffer overflow! Needed 4362402, had 4000000
+Error: Jacobian buffer overflow! Needed 4363800, had 4000000
+Error: Jacobian buffer overflow! Needed 4365198, had 4000000
+Error: Jacobian buffer overflow! Needed 4366596, had 4000000
+Error: Jacobian buffer overflow! Needed 4367994, had 4000000
+Error: Jacobian buffer overflow! Needed 4369392, had 4000000
+Error: Jacobian buffer overflow! Needed 4370786, had 4000000
+Error: Jacobian buffer overflow! Needed 4372179, had 4000000
+Error: Jacobian buffer overflow! Needed 4373577, had 4000000
+Error: Jacobian buffer overflow! Needed 4374976, had 4000000
+Error: Jacobian buffer overflow! Needed 4376375, had 4000000
+Error: Jacobian buffer overflow! Needed 4377774, had 4000000
+Error: Jacobian buffer overflow! Needed 4379173, had 4000000
+Error: Jacobian buffer overflow! Needed 4380572, had 4000000
+Error: Jacobian buffer overflow! Needed 4381971, had 4000000
+Error: Jacobian buffer overflow! Needed 4383370, had 4000000
+Error: Jacobian buffer overflow! Needed 4384764, had 4000000
+Error: Jacobian buffer overflow! Needed 4386157, had 4000000
+Error: Jacobian buffer overflow! Needed 4387555, had 4000000
+Error: Jacobian buffer overflow! Needed 4388954, had 4000000
+Error: Jacobian buffer overflow! Needed 4390353, had 4000000
+Error: Jacobian buffer overflow! Needed 4391752, had 4000000
+Error: Jacobian buffer overflow! Needed 4393151, had 4000000
+Error: Jacobian buffer overflow! Needed 4394550, had 4000000
+Error: Jacobian buffer overflow! Needed 4395949, had 4000000
+Error: Jacobian buffer overflow! Needed 4397348, had 4000000
+Error: Jacobian buffer overflow! Needed 4398742, had 4000000
+Error: Jacobian buffer overflow! Needed 4400135, had 4000000
+Error: Jacobian buffer overflow! Needed 4401533, had 4000000
+Error: Jacobian buffer overflow! Needed 4402932, had 4000000
+Error: Jacobian buffer overflow! Needed 4404331, had 4000000
+Error: Jacobian buffer overflow! Needed 4405730, had 4000000
+Error: Jacobian buffer overflow! Needed 4407129, had 4000000
+Error: Jacobian buffer overflow! Needed 4408528, had 4000000
+Error: Jacobian buffer overflow! Needed 4409927, had 4000000
+Error: Jacobian buffer overflow! Needed 4411326, had 4000000
+Error: Jacobian buffer overflow! Needed 4412720, had 4000000
+Error: Jacobian buffer overflow! Needed 4414113, had 4000000
+Error: Jacobian buffer overflow! Needed 4415511, had 4000000
+Error: Jacobian buffer overflow! Needed 4416910, had 4000000
+Error: Jacobian buffer overflow! Needed 4418309, had 4000000
+Error: Jacobian buffer overflow! Needed 4419708, had 4000000
+Error: Jacobian buffer overflow! Needed 4421107, had 4000000
+Error: Jacobian buffer overflow! Needed 4422506, had 4000000
+Error: Jacobian buffer overflow! Needed 4423905, had 4000000
+Error: Jacobian buffer overflow! Needed 4425304, had 4000000
+Error: Jacobian buffer overflow! Needed 4426698, had 4000000
+Error: Jacobian buffer overflow! Needed 4428091, had 4000000
+Error: Jacobian buffer overflow! Needed 4429489, had 4000000
+Error: Jacobian buffer overflow! Needed 4430888, had 4000000
+Error: Jacobian buffer overflow! Needed 4432287, had 4000000
+Error: Jacobian buffer overflow! Needed 4433686, had 4000000
+Error: Jacobian buffer overflow! Needed 4435085, had 4000000
+Error: Jacobian buffer overflow! Needed 4436484, had 4000000
+Error: Jacobian buffer overflow! Needed 4437883, had 4000000
+Error: Jacobian buffer overflow! Needed 4439282, had 4000000
+Error: Jacobian buffer overflow! Needed 4440676, had 4000000
+Error: Jacobian buffer overflow! Needed 4442069, had 4000000
+Error: Jacobian buffer overflow! Needed 4443467, had 4000000
+Error: Jacobian buffer overflow! Needed 4444866, had 4000000
+Error: Jacobian buffer overflow! Needed 4446265, had 4000000
+Error: Jacobian buffer overflow! Needed 4447664, had 4000000
+Error: Jacobian buffer overflow! Needed 4449063, had 4000000
+Error: Jacobian buffer overflow! Needed 4450462, had 4000000
+Error: Jacobian buffer overflow! Needed 4451861, had 4000000
+Error: Jacobian buffer overflow! Needed 4453260, had 4000000
+Error: Jacobian buffer overflow! Needed 4454654, had 4000000
+Error: Jacobian buffer overflow! Needed 4456047, had 4000000
+Error: Jacobian buffer overflow! Needed 4457445, had 4000000
+Error: Jacobian buffer overflow! Needed 4458844, had 4000000
+Error: Jacobian buffer overflow! Needed 4460243, had 4000000
+Error: Jacobian buffer overflow! Needed 4461642, had 4000000
+Error: Jacobian buffer overflow! Needed 4463041, had 4000000
+Error: Jacobian buffer overflow! Needed 4464440, had 4000000
+Error: Jacobian buffer overflow! Needed 4465839, had 4000000
+Error: Jacobian buffer overflow! Needed 4467238, had 4000000
+Error: Jacobian buffer overflow! Needed 4468632, had 4000000
+Error: Jacobian buffer overflow! Needed 4470025, had 4000000
+Error: Jacobian buffer overflow! Needed 4471419, had 4000000
+Error: Jacobian buffer overflow! Needed 4472813, had 4000000
+Error: Jacobian buffer overflow! Needed 4474207, had 4000000
+Error: Jacobian buffer overflow! Needed 4475601, had 4000000
+Error: Jacobian buffer overflow! Needed 4476995, had 4000000
+Error: Jacobian buffer overflow! Needed 4478389, had 4000000
+Error: Jacobian buffer overflow! Needed 4479783, had 4000000
+Error: Jacobian buffer overflow! Needed 4481177, had 4000000
+Error: Jacobian buffer overflow! Needed 4482570, had 4000000
+Error: Jacobian buffer overflow! Needed 4483963, had 4000000
+Error: Jacobian buffer overflow! Needed 4485357, had 4000000
+Error: Jacobian buffer overflow! Needed 4486751, had 4000000
+Error: Jacobian buffer overflow! Needed 4488145, had 4000000
+Error: Jacobian buffer overflow! Needed 4489539, had 4000000
+Error: Jacobian buffer overflow! Needed 4490933, had 4000000
+Error: Jacobian buffer overflow! Needed 4492327, had 4000000
+Error: Jacobian buffer overflow! Needed 4493720, had 4000000
+Error: Jacobian buffer overflow! Needed 4495113, had 4000000
+Error: Jacobian buffer overflow! Needed 4496506, had 4000000
+Error: Jacobian buffer overflow! Needed 4497900, had 4000000
+Error: Jacobian buffer overflow! Needed 4499298, had 4000000
+Error: Jacobian buffer overflow! Needed 4500697, had 4000000
+Error: Jacobian buffer overflow! Needed 4502096, had 4000000
+Error: Jacobian buffer overflow! Needed 4503495, had 4000000
+Error: Jacobian buffer overflow! Needed 4504894, had 4000000
+Error: Jacobian buffer overflow! Needed 4506293, had 4000000
+Error: Jacobian buffer overflow! Needed 4507691, had 4000000
+Error: Jacobian buffer overflow! Needed 4509089, had 4000000
+Error: Jacobian buffer overflow! Needed 4510484, had 4000000
+Error: Jacobian buffer overflow! Needed 4511879, had 4000000
+Error: Jacobian buffer overflow! Needed 4513277, had 4000000
+Error: Jacobian buffer overflow! Needed 4514676, had 4000000
+Error: Jacobian buffer overflow! Needed 4516075, had 4000000
+Error: Jacobian buffer overflow! Needed 4517474, had 4000000
+Error: Jacobian buffer overflow! Needed 4518873, had 4000000
+Error: Jacobian buffer overflow! Needed 4520272, had 4000000
+Error: Jacobian buffer overflow! Needed 4521671, had 4000000
+Error: Jacobian buffer overflow! Needed 4523070, had 4000000
+Error: Jacobian buffer overflow! Needed 4524465, had 4000000
+Error: Jacobian buffer overflow! Needed 4525859, had 4000000
+Error: Jacobian buffer overflow! Needed 4527257, had 4000000
+Error: Jacobian buffer overflow! Needed 4528656, had 4000000
+Error: Jacobian buffer overflow! Needed 4530055, had 4000000
+Error: Jacobian buffer overflow! Needed 4531454, had 4000000
+Error: Jacobian buffer overflow! Needed 4532853, had 4000000
+Error: Jacobian buffer overflow! Needed 4534252, had 4000000
+Error: Jacobian buffer overflow! Needed 4535651, had 4000000
+Error: Jacobian buffer overflow! Needed 4537050, had 4000000
+Error: Jacobian buffer overflow! Needed 4538444, had 4000000
+Error: Jacobian buffer overflow! Needed 4539837, had 4000000
+Error: Jacobian buffer overflow! Needed 4541235, had 4000000
+Error: Jacobian buffer overflow! Needed 4542634, had 4000000
+Error: Jacobian buffer overflow! Needed 4544033, had 4000000
+Error: Jacobian buffer overflow! Needed 4545432, had 4000000
+Error: Jacobian buffer overflow! Needed 4546831, had 4000000
+Error: Jacobian buffer overflow! Needed 4548230, had 4000000
+Error: Jacobian buffer overflow! Needed 4549629, had 4000000
+Error: Jacobian buffer overflow! Needed 4551028, had 4000000
+Error: Jacobian buffer overflow! Needed 4552422, had 4000000
+Error: Jacobian buffer overflow! Needed 4553815, had 4000000
+Error: Jacobian buffer overflow! Needed 4555213, had 4000000
+Error: Jacobian buffer overflow! Needed 4556612, had 4000000
+Error: Jacobian buffer overflow! Needed 4558011, had 4000000
+Error: Jacobian buffer overflow! Needed 4559410, had 4000000
+Error: Jacobian buffer overflow! Needed 4560809, had 4000000
+Error: Jacobian buffer overflow! Needed 4562208, had 4000000
+Error: Jacobian buffer overflow! Needed 4563607, had 4000000
+Error: Jacobian buffer overflow! Needed 4565006, had 4000000
+Error: Jacobian buffer overflow! Needed 4566401, had 4000000
+Error: Jacobian buffer overflow! Needed 4567795, had 4000000
+Error: Jacobian buffer overflow! Needed 4569193, had 4000000
+Error: Jacobian buffer overflow! Needed 4570592, had 4000000
+Error: Jacobian buffer overflow! Needed 4571991, had 4000000
+Error: Jacobian buffer overflow! Needed 4573390, had 4000000
+Error: Jacobian buffer overflow! Needed 4574789, had 4000000
+Error: Jacobian buffer overflow! Needed 4576188, had 4000000
+Error: Jacobian buffer overflow! Needed 4577587, had 4000000
+Error: Jacobian buffer overflow! Needed 4578986, had 4000000
+Error: Jacobian buffer overflow! Needed 4580382, had 4000000
+Error: Jacobian buffer overflow! Needed 4581777, had 4000000
+Error: Jacobian buffer overflow! Needed 4583175, had 4000000
+Error: Jacobian buffer overflow! Needed 4584574, had 4000000
+Error: Jacobian buffer overflow! Needed 4585973, had 4000000
+Error: Jacobian buffer overflow! Needed 4587372, had 4000000
+Error: Jacobian buffer overflow! Needed 4588771, had 4000000
+Error: Jacobian buffer overflow! Needed 4590170, had 4000000
+Error: Jacobian buffer overflow! Needed 4591569, had 4000000
+Error: Jacobian buffer overflow! Needed 4592968, had 4000000
+Error: Jacobian buffer overflow! Needed 4594364, had 4000000
+Error: Jacobian buffer overflow! Needed 4595758, had 4000000
+Error: Jacobian buffer overflow! Needed 4597156, had 4000000
+Error: Jacobian buffer overflow! Needed 4598555, had 4000000
+Error: Jacobian buffer overflow! Needed 4599954, had 4000000
+Error: Jacobian buffer overflow! Needed 4601353, had 4000000
+Error: Jacobian buffer overflow! Needed 4602752, had 4000000
+Error: Jacobian buffer overflow! Needed 4604151, had 4000000
+Error: Jacobian buffer overflow! Needed 4605550, had 4000000
+Error: Jacobian buffer overflow! Needed 4606949, had 4000000
+Error: Jacobian buffer overflow! Needed 4608344, had 4000000
+Error: Jacobian buffer overflow! Needed 4609737, had 4000000
+Error: Jacobian buffer overflow! Needed 4611131, had 4000000
+Error: Jacobian buffer overflow! Needed 4612525, had 4000000
+Error: Jacobian buffer overflow! Needed 4613919, had 4000000
+Error: Jacobian buffer overflow! Needed 4615313, had 4000000
+Error: Jacobian buffer overflow! Needed 4616707, had 4000000
+Error: Jacobian buffer overflow! Needed 4618101, had 4000000
+Error: Jacobian buffer overflow! Needed 4619495, had 4000000
+Error: Jacobian buffer overflow! Needed 4620889, had 4000000
+Error: Jacobian buffer overflow! Needed 4622282, had 4000000
+Error: Jacobian buffer overflow! Needed 4623675, had 4000000
+Error: Jacobian buffer overflow! Needed 4625068, had 4000000
+Error: Jacobian buffer overflow! Needed 4626461, had 4000000
+Error: Jacobian buffer overflow! Needed 4627854, had 4000000
+Error: Jacobian buffer overflow! Needed 4629247, had 4000000
+Error: Jacobian buffer overflow! Needed 4630640, had 4000000
+Error: Jacobian buffer overflow! Needed 4632033, had 4000000
+Error: Jacobian buffer overflow! Needed 4633426, had 4000000
+Error: Jacobian buffer overflow! Needed 4634819, had 4000000
+Error: Jacobian buffer overflow! Needed 4636212, had 4000000
+Error: Jacobian buffer overflow! Needed 4637605, had 4000000
+Error: Jacobian buffer overflow! Needed 4639002, had 4000000
+Error: Jacobian buffer overflow! Needed 4640400, had 4000000
+Error: Jacobian buffer overflow! Needed 4641798, had 4000000
+Error: Jacobian buffer overflow! Needed 4643196, had 4000000
+Error: Jacobian buffer overflow! Needed 4644594, had 4000000
+Error: Jacobian buffer overflow! Needed 4645992, had 4000000
+Error: Jacobian buffer overflow! Needed 4647390, had 4000000
+Error: Jacobian buffer overflow! Needed 4648788, had 4000000
+Error: Jacobian buffer overflow! Needed 4650182, had 4000000
+Error: Jacobian buffer overflow! Needed 4651575, had 4000000
+Error: Jacobian buffer overflow! Needed 4652973, had 4000000
+Error: Jacobian buffer overflow! Needed 4654372, had 4000000
+Error: Jacobian buffer overflow! Needed 4655771, had 4000000
+Error: Jacobian buffer overflow! Needed 4657170, had 4000000
+Error: Jacobian buffer overflow! Needed 4658569, had 4000000
+Error: Jacobian buffer overflow! Needed 4659968, had 4000000
+Error: Jacobian buffer overflow! Needed 4661367, had 4000000
+Error: Jacobian buffer overflow! Needed 4662766, had 4000000
+Error: Jacobian buffer overflow! Needed 4664160, had 4000000
+Error: Jacobian buffer overflow! Needed 4665554, had 4000000
+Error: Jacobian buffer overflow! Needed 4666952, had 4000000
+Error: Jacobian buffer overflow! Needed 4668351, had 4000000
+Error: Jacobian buffer overflow! Needed 4669750, had 4000000
+Error: Jacobian buffer overflow! Needed 4671149, had 4000000
+Error: Jacobian buffer overflow! Needed 4672548, had 4000000
+Error: Jacobian buffer overflow! Needed 4673947, had 4000000
+Error: Jacobian buffer overflow! Needed 4675346, had 4000000
+Error: Jacobian buffer overflow! Needed 4676745, had 4000000
+Error: Jacobian buffer overflow! Needed 4678140, had 4000000
+Error: Jacobian buffer overflow! Needed 4679535, had 4000000
+Error: Jacobian buffer overflow! Needed 4680933, had 4000000
+Error: Jacobian buffer overflow! Needed 4682332, had 4000000
+Error: Jacobian buffer overflow! Needed 4683731, had 4000000
+Error: Jacobian buffer overflow! Needed 4685130, had 4000000
+Error: Jacobian buffer overflow! Needed 4686529, had 4000000
+Error: Jacobian buffer overflow! Needed 4687928, had 4000000
+Error: Jacobian buffer overflow! Needed 4689327, had 4000000
+Error: Jacobian buffer overflow! Needed 4690726, had 4000000
+Error: Jacobian buffer overflow! Needed 4692122, had 4000000
+Error: Jacobian buffer overflow! Needed 4693517, had 4000000
+Error: Jacobian buffer overflow! Needed 4694915, had 4000000
+Error: Jacobian buffer overflow! Needed 4696314, had 4000000
+Error: Jacobian buffer overflow! Needed 4697713, had 4000000
+Error: Jacobian buffer overflow! Needed 4699112, had 4000000
+Error: Jacobian buffer overflow! Needed 4700511, had 4000000
+Error: Jacobian buffer overflow! Needed 4701910, had 4000000
+Error: Jacobian buffer overflow! Needed 4703309, had 4000000
+Error: Jacobian buffer overflow! Needed 4704708, had 4000000
+Error: Jacobian buffer overflow! Needed 4706104, had 4000000
+Error: Jacobian buffer overflow! Needed 4707498, had 4000000
+Error: Jacobian buffer overflow! Needed 4708896, had 4000000
+Error: Jacobian buffer overflow! Needed 4710295, had 4000000
+Error: Jacobian buffer overflow! Needed 4711694, had 4000000
+Error: Jacobian buffer overflow! Needed 4713093, had 4000000
+Error: Jacobian buffer overflow! Needed 4714492, had 4000000
+Error: Jacobian buffer overflow! Needed 4715891, had 4000000
+Error: Jacobian buffer overflow! Needed 4717290, had 4000000
+Error: Jacobian buffer overflow! Needed 4718689, had 4000000
+Error: Jacobian buffer overflow! Needed 4720084, had 4000000
+Error: Jacobian buffer overflow! Needed 4721477, had 4000000
+Error: Jacobian buffer overflow! Needed 4722875, had 4000000
+Error: Jacobian buffer overflow! Needed 4724274, had 4000000
+Error: Jacobian buffer overflow! Needed 4725673, had 4000000
+Error: Jacobian buffer overflow! Needed 4727072, had 4000000
+Error: Jacobian buffer overflow! Needed 4728471, had 4000000
+Error: Jacobian buffer overflow! Needed 4729870, had 4000000
+Error: Jacobian buffer overflow! Needed 4731269, had 4000000
+Error: Jacobian buffer overflow! Needed 4732668, had 4000000
+Error: Jacobian buffer overflow! Needed 4734062, had 4000000
+Error: Jacobian buffer overflow! Needed 4735455, had 4000000
+Error: Jacobian buffer overflow! Needed 4736853, had 4000000
+Error: Jacobian buffer overflow! Needed 4738252, had 4000000
+Error: Jacobian buffer overflow! Needed 4739651, had 4000000
+Error: Jacobian buffer overflow! Needed 4741050, had 4000000
+Error: Jacobian buffer overflow! Needed 4742449, had 4000000
+Error: Jacobian buffer overflow! Needed 4743848, had 4000000
+Error: Jacobian buffer overflow! Needed 4745247, had 4000000
+Error: Jacobian buffer overflow! Needed 4746646, had 4000000
+Error: Jacobian buffer overflow! Needed 4748040, had 4000000
+Error: Jacobian buffer overflow! Needed 4749434, had 4000000
+Error: Jacobian buffer overflow! Needed 4750830, had 4000000
+Error: Jacobian buffer overflow! Needed 4752226, had 4000000
+Error: Jacobian buffer overflow! Needed 4753621, had 4000000
+Error: Jacobian buffer overflow! Needed 4755015, had 4000000
+Error: Jacobian buffer overflow! Needed 4756409, had 4000000
+Error: Jacobian buffer overflow! Needed 4757803, had 4000000
+Error: Jacobian buffer overflow! Needed 4759198, had 4000000
+Error: Jacobian buffer overflow! Needed 4760594, had 4000000
+Error: Jacobian buffer overflow! Needed 4761988, had 4000000
+Error: Jacobian buffer overflow! Needed 4763381, had 4000000
+Error: Jacobian buffer overflow! Needed 4764774, had 4000000
+Error: Jacobian buffer overflow! Needed 4766167, had 4000000
+Error: Jacobian buffer overflow! Needed 4767561, had 4000000
+Error: Jacobian buffer overflow! Needed 4768955, had 4000000
+Error: Jacobian buffer overflow! Needed 4770350, had 4000000
+Error: Jacobian buffer overflow! Needed 4771746, had 4000000
+Error: Jacobian buffer overflow! Needed 4773142, had 4000000
+Error: Jacobian buffer overflow! Needed 4774538, had 4000000
+Error: Jacobian buffer overflow! Needed 4775932, had 4000000
+Error: Jacobian buffer overflow! Needed 4777326, had 4000000
+Error: Jacobian buffer overflow! Needed 4778723, had 4000000
+Error: Jacobian buffer overflow! Needed 4780121, had 4000000
+Error: Jacobian buffer overflow! Needed 4781520, had 4000000
+Error: Jacobian buffer overflow! Needed 4782919, had 4000000
+Error: Jacobian buffer overflow! Needed 4784318, had 4000000
+Error: Jacobian buffer overflow! Needed 4785717, had 4000000
+Error: Jacobian buffer overflow! Needed 4787116, had 4000000
+Error: Jacobian buffer overflow! Needed 4788515, had 4000000
+Error: Jacobian buffer overflow! Needed 4789910, had 4000000
+Error: Jacobian buffer overflow! Needed 4791305, had 4000000
+Error: Jacobian buffer overflow! Needed 4792703, had 4000000
+Error: Jacobian buffer overflow! Needed 4794102, had 4000000
+Error: Jacobian buffer overflow! Needed 4795501, had 4000000
+Error: Jacobian buffer overflow! Needed 4796900, had 4000000
+Error: Jacobian buffer overflow! Needed 4798299, had 4000000
+Error: Jacobian buffer overflow! Needed 4799698, had 4000000
+Error: Jacobian buffer overflow! Needed 4801097, had 4000000
+Error: Jacobian buffer overflow! Needed 4802496, had 4000000
+Error: Jacobian buffer overflow! Needed 4803892, had 4000000
+Error: Jacobian buffer overflow! Needed 4805287, had 4000000
+Error: Jacobian buffer overflow! Needed 4806685, had 4000000
+Error: Jacobian buffer overflow! Needed 4808084, had 4000000
+Error: Jacobian buffer overflow! Needed 4809483, had 4000000
+Error: Jacobian buffer overflow! Needed 4810882, had 4000000
+Error: Jacobian buffer overflow! Needed 4812281, had 4000000
+Error: Jacobian buffer overflow! Needed 4813680, had 4000000
+Error: Jacobian buffer overflow! Needed 4815079, had 4000000
+Error: Jacobian buffer overflow! Needed 4816478, had 4000000
+Error: Jacobian buffer overflow! Needed 4817873, had 4000000
+Error: Jacobian buffer overflow! Needed 4819267, had 4000000
+Error: Jacobian buffer overflow! Needed 4820665, had 4000000
+Error: Jacobian buffer overflow! Needed 4822064, had 4000000
+Error: Jacobian buffer overflow! Needed 4823463, had 4000000
+Error: Jacobian buffer overflow! Needed 4824862, had 4000000
+Error: Jacobian buffer overflow! Needed 4826261, had 4000000
+Error: Jacobian buffer overflow! Needed 4827660, had 4000000
+Error: Jacobian buffer overflow! Needed 4829059, had 4000000
+Error: Jacobian buffer overflow! Needed 4830458, had 4000000
+Error: Jacobian buffer overflow! Needed 4831852, had 4000000
+Error: Jacobian buffer overflow! Needed 4833245, had 4000000
+Error: Jacobian buffer overflow! Needed 4834643, had 4000000
+Error: Jacobian buffer overflow! Needed 4836042, had 4000000
+Error: Jacobian buffer overflow! Needed 4837441, had 4000000
+Error: Jacobian buffer overflow! Needed 4838840, had 4000000
+Error: Jacobian buffer overflow! Needed 4840239, had 4000000
+Error: Jacobian buffer overflow! Needed 4841638, had 4000000
+Error: Jacobian buffer overflow! Needed 4843037, had 4000000
+Error: Jacobian buffer overflow! Needed 4844436, had 4000000
+Error: Jacobian buffer overflow! Needed 4845830, had 4000000
+Error: Jacobian buffer overflow! Needed 4847223, had 4000000
+Error: Jacobian buffer overflow! Needed 4848621, had 4000000
+Error: Jacobian buffer overflow! Needed 4850020, had 4000000
+Error: Jacobian buffer overflow! Needed 4851419, had 4000000
+Error: Jacobian buffer overflow! Needed 4852818, had 4000000
+Error: Jacobian buffer overflow! Needed 4854217, had 4000000
+Error: Jacobian buffer overflow! Needed 4855616, had 4000000
+Error: Jacobian buffer overflow! Needed 4857015, had 4000000
+Error: Jacobian buffer overflow! Needed 4858414, had 4000000
+Error: Jacobian buffer overflow! Needed 4859809, had 4000000
+Error: Jacobian buffer overflow! Needed 4861204, had 4000000
+Error: Jacobian buffer overflow! Needed 4862603, had 4000000
+Error: Jacobian buffer overflow! Needed 4864002, had 4000000
+Error: Jacobian buffer overflow! Needed 4865401, had 4000000
+Error: Jacobian buffer overflow! Needed 4866800, had 4000000
+Error: Jacobian buffer overflow! Needed 4868199, had 4000000
+Error: Jacobian buffer overflow! Needed 4869598, had 4000000
+Error: Jacobian buffer overflow! Needed 4870997, had 4000000
+Error: Jacobian buffer overflow! Needed 4872396, had 4000000
+Error: Jacobian buffer overflow! Needed 4873792, had 4000000
+Error: Jacobian buffer overflow! Needed 4875188, had 4000000
+Error: Jacobian buffer overflow! Needed 4876587, had 4000000
+Error: Jacobian buffer overflow! Needed 4877986, had 4000000
+Error: Jacobian buffer overflow! Needed 4879385, had 4000000
+Error: Jacobian buffer overflow! Needed 4880784, had 4000000
+Error: Jacobian buffer overflow! Needed 4882183, had 4000000
+Error: Jacobian buffer overflow! Needed 4883582, had 4000000
+Error: Jacobian buffer overflow! Needed 4884981, had 4000000
+Error: Jacobian buffer overflow! Needed 4886380, had 4000000
+Error: Jacobian buffer overflow! Needed 4887776, had 4000000
+Error: Jacobian buffer overflow! Needed 4889170, had 4000000
+Error: Jacobian buffer overflow! Needed 4890564, had 4000000
+Error: Jacobian buffer overflow! Needed 4891958, had 4000000
+Error: Jacobian buffer overflow! Needed 4893352, had 4000000
+Error: Jacobian buffer overflow! Needed 4894746, had 4000000
+Error: Jacobian buffer overflow! Needed 4896140, had 4000000
+Error: Jacobian buffer overflow! Needed 4897534, had 4000000
+Error: Jacobian buffer overflow! Needed 4898928, had 4000000
+Error: Jacobian buffer overflow! Needed 4900322, had 4000000
+Error: Jacobian buffer overflow! Needed 4901716, had 4000000
+Error: Jacobian buffer overflow! Needed 4903109, had 4000000
+Error: Jacobian buffer overflow! Needed 4904503, had 4000000
+Error: Jacobian buffer overflow! Needed 4905897, had 4000000
+Error: Jacobian buffer overflow! Needed 4907291, had 4000000
+Error: Jacobian buffer overflow! Needed 4908685, had 4000000
+Error: Jacobian buffer overflow! Needed 4910078, had 4000000
+Error: Jacobian buffer overflow! Needed 4911471, had 4000000
+Error: Jacobian buffer overflow! Needed 4912864, had 4000000
+Error: Jacobian buffer overflow! Needed 4914257, had 4000000
+Error: Jacobian buffer overflow! Needed 4915650, had 4000000
+Error: Jacobian buffer overflow! Needed 4917044, had 4000000
+Error: Jacobian buffer overflow! Needed 4918443, had 4000000
+Error: Jacobian buffer overflow! Needed 4919842, had 4000000
+Error: Jacobian buffer overflow! Needed 4921241, had 4000000
+Error: Jacobian buffer overflow! Needed 4922640, had 4000000
+Error: Jacobian buffer overflow! Needed 4924038, had 4000000
+Error: Jacobian buffer overflow! Needed 4925436, had 4000000
+Error: Jacobian buffer overflow! Needed 4926834, had 4000000
+Error: Jacobian buffer overflow! Needed 4928232, had 4000000
+Error: Jacobian buffer overflow! Needed 4929626, had 4000000
+Error: Jacobian buffer overflow! Needed 4931020, had 4000000
+Error: Jacobian buffer overflow! Needed 4932419, had 4000000
+Error: Jacobian buffer overflow! Needed 4933818, had 4000000
+Error: Jacobian buffer overflow! Needed 4935217, had 4000000
+Error: Jacobian buffer overflow! Needed 4936616, had 4000000
+Error: Jacobian buffer overflow! Needed 4938015, had 4000000
+Error: Jacobian buffer overflow! Needed 4939414, had 4000000
+Error: Jacobian buffer overflow! Needed 4940813, had 4000000
+Error: Jacobian buffer overflow! Needed 4942212, had 4000000
+Error: Jacobian buffer overflow! Needed 4943606, had 4000000
+Error: Jacobian buffer overflow! Needed 4944999, had 4000000
+Error: Jacobian buffer overflow! Needed 4946397, had 4000000
+Error: Jacobian buffer overflow! Needed 4947796, had 4000000
+Error: Jacobian buffer overflow! Needed 4949195, had 4000000
+Error: Jacobian buffer overflow! Needed 4950594, had 4000000
+Error: Jacobian buffer overflow! Needed 4951993, had 4000000
+Error: Jacobian buffer overflow! Needed 4953392, had 4000000
+Error: Jacobian buffer overflow! Needed 4954791, had 4000000
+Error: Jacobian buffer overflow! Needed 4956190, had 4000000
+Error: Jacobian buffer overflow! Needed 4957584, had 4000000
+Error: Jacobian buffer overflow! Needed 4958978, had 4000000
+Error: Jacobian buffer overflow! Needed 4960376, had 4000000
+Error: Jacobian buffer overflow! Needed 4961775, had 4000000
+Error: Jacobian buffer overflow! Needed 4963174, had 4000000
+Error: Jacobian buffer overflow! Needed 4964573, had 4000000
+Error: Jacobian buffer overflow! Needed 4965972, had 4000000
+Error: Jacobian buffer overflow! Needed 4967371, had 4000000
+Error: Jacobian buffer overflow! Needed 4968770, had 4000000
+Error: Jacobian buffer overflow! Needed 4970169, had 4000000
+Error: Jacobian buffer overflow! Needed 4971564, had 4000000
+Error: Jacobian buffer overflow! Needed 4972960, had 4000000
+Error: Jacobian buffer overflow! Needed 4974359, had 4000000
+Error: Jacobian buffer overflow! Needed 4975758, had 4000000
+Error: Jacobian buffer overflow! Needed 4977157, had 4000000
+Error: Jacobian buffer overflow! Needed 4978556, had 4000000
+Error: Jacobian buffer overflow! Needed 4979955, had 4000000
+Error: Jacobian buffer overflow! Needed 4981354, had 4000000
+Error: Jacobian buffer overflow! Needed 4982753, had 4000000
+Error: Jacobian buffer overflow! Needed 4984152, had 4000000
+Error: Jacobian buffer overflow! Needed 4985548, had 4000000
+Error: Jacobian buffer overflow! Needed 4986943, had 4000000
+Error: Jacobian buffer overflow! Needed 4988341, had 4000000
+Error: Jacobian buffer overflow! Needed 4989740, had 4000000
+Error: Jacobian buffer overflow! Needed 4991139, had 4000000
+Error: Jacobian buffer overflow! Needed 4992538, had 4000000
+Error: Jacobian buffer overflow! Needed 4993937, had 4000000
+Error: Jacobian buffer overflow! Needed 4995336, had 4000000
+Error: Jacobian buffer overflow! Needed 4996735, had 4000000
+Error: Jacobian buffer overflow! Needed 4998134, had 4000000
+Error: Jacobian buffer overflow! Needed 4999530, had 4000000
+Error: Jacobian buffer overflow! Needed 5000924, had 4000000
+Error: Jacobian buffer overflow! Needed 5002322, had 4000000
+Error: Jacobian buffer overflow! Needed 5003721, had 4000000
+Error: Jacobian buffer overflow! Needed 5005120, had 4000000
+Error: Jacobian buffer overflow! Needed 5006519, had 4000000
+Error: Jacobian buffer overflow! Needed 5007918, had 4000000
+Error: Jacobian buffer overflow! Needed 5009317, had 4000000
+Error: Jacobian buffer overflow! Needed 5010716, had 4000000
+Error: Jacobian buffer overflow! Needed 5012115, had 4000000
+Error: Jacobian buffer overflow! Needed 5013510, had 4000000
+Error: Jacobian buffer overflow! Needed 5014903, had 4000000
+Error: Jacobian buffer overflow! Needed 5016301, had 4000000
+Error: Jacobian buffer overflow! Needed 5017700, had 4000000
+Error: Jacobian buffer overflow! Needed 5019099, had 4000000
+Error: Jacobian buffer overflow! Needed 5020498, had 4000000
+Error: Jacobian buffer overflow! Needed 5021897, had 4000000
+Error: Jacobian buffer overflow! Needed 5023296, had 4000000
+Error: Jacobian buffer overflow! Needed 5024695, had 4000000
+Error: Jacobian buffer overflow! Needed 5026094, had 4000000
+Error: Jacobian buffer overflow! Needed 5027488, had 4000000
+Error: Jacobian buffer overflow! Needed 5028881, had 4000000
+Error: Jacobian buffer overflow! Needed 5030276, had 4000000
+Error: Jacobian buffer overflow! Needed 5031672, had 4000000
+Error: Jacobian buffer overflow! Needed 5033068, had 4000000
+Error: Jacobian buffer overflow! Needed 5034464, had 4000000
+Error: Jacobian buffer overflow! Needed 5035859, had 4000000
+Error: Jacobian buffer overflow! Needed 5037253, had 4000000
+Error: Jacobian buffer overflow! Needed 5038647, had 4000000
+Error: Jacobian buffer overflow! Needed 5040041, had 4000000
+Error: Jacobian buffer overflow! Needed 5041434, had 4000000
+Error: Jacobian buffer overflow! Needed 5042828, had 4000000
+Error: Jacobian buffer overflow! Needed 5044223, had 4000000
+Error: Jacobian buffer overflow! Needed 5045618, had 4000000
+Error: Jacobian buffer overflow! Needed 5047012, had 4000000
+Error: Jacobian buffer overflow! Needed 5048405, had 4000000
+Error: Jacobian buffer overflow! Needed 5049798, had 4000000
+Error: Jacobian buffer overflow! Needed 5051191, had 4000000
+Error: Jacobian buffer overflow! Needed 5052585, had 4000000
+Error: Jacobian buffer overflow! Needed 5053980, had 4000000
+Error: Jacobian buffer overflow! Needed 5055374, had 4000000
+Error: Jacobian buffer overflow! Needed 5056767, had 4000000
+Error: Jacobian buffer overflow! Needed 5058164, had 4000000
+Error: Jacobian buffer overflow! Needed 5059562, had 4000000
+Error: Jacobian buffer overflow! Needed 5060960, had 4000000
+Error: Jacobian buffer overflow! Needed 5062358, had 4000000
+Error: Jacobian buffer overflow! Needed 5063756, had 4000000
+Error: Jacobian buffer overflow! Needed 5065154, had 4000000
+Error: Jacobian buffer overflow! Needed 5066552, had 4000000
+Error: Jacobian buffer overflow! Needed 5067950, had 4000000
+Error: Jacobian buffer overflow! Needed 5069344, had 4000000
+Error: Jacobian buffer overflow! Needed 5070737, had 4000000
+Error: Jacobian buffer overflow! Needed 5072135, had 4000000
+Error: Jacobian buffer overflow! Needed 5073534, had 4000000
+Error: Jacobian buffer overflow! Needed 5074933, had 4000000
+Error: Jacobian buffer overflow! Needed 5076332, had 4000000
+Error: Jacobian buffer overflow! Needed 5077731, had 4000000
+Error: Jacobian buffer overflow! Needed 5079130, had 4000000
+Error: Jacobian buffer overflow! Needed 5080529, had 4000000
+Error: Jacobian buffer overflow! Needed 5081928, had 4000000
+Error: Jacobian buffer overflow! Needed 5083322, had 4000000
+Error: Jacobian buffer overflow! Needed 5084715, had 4000000
+Error: Jacobian buffer overflow! Needed 5086113, had 4000000
+Error: Jacobian buffer overflow! Needed 5087512, had 4000000
+Error: Jacobian buffer overflow! Needed 5088911, had 4000000
+Error: Jacobian buffer overflow! Needed 5090310, had 4000000
+Error: Jacobian buffer overflow! Needed 5091709, had 4000000
+Error: Jacobian buffer overflow! Needed 5093108, had 4000000
+Error: Jacobian buffer overflow! Needed 5094507, had 4000000
+Error: Jacobian buffer overflow! Needed 5095906, had 4000000
+Error: Jacobian buffer overflow! Needed 5097300, had 4000000
+Error: Jacobian buffer overflow! Needed 5098693, had 4000000
+Error: Jacobian buffer overflow! Needed 5100091, had 4000000
+Error: Jacobian buffer overflow! Needed 5101490, had 4000000
+Error: Jacobian buffer overflow! Needed 5102889, had 4000000
+Error: Jacobian buffer overflow! Needed 5104288, had 4000000
+Error: Jacobian buffer overflow! Needed 5105687, had 4000000
+Error: Jacobian buffer overflow! Needed 5107086, had 4000000
+Error: Jacobian buffer overflow! Needed 5108485, had 4000000
+Error: Jacobian buffer overflow! Needed 5109884, had 4000000
+Error: Jacobian buffer overflow! Needed 5111278, had 4000000
+Error: Jacobian buffer overflow! Needed 5112671, had 4000000
+Error: Jacobian buffer overflow! Needed 5114069, had 4000000
+Error: Jacobian buffer overflow! Needed 5115468, had 4000000
+Error: Jacobian buffer overflow! Needed 5116867, had 4000000
+Error: Jacobian buffer overflow! Needed 5118266, had 4000000
+Error: Jacobian buffer overflow! Needed 5119665, had 4000000
+Error: Jacobian buffer overflow! Needed 5121064, had 4000000
+Error: Jacobian buffer overflow! Needed 5122463, had 4000000
+Error: Jacobian buffer overflow! Needed 5123862, had 4000000
+Error: Jacobian buffer overflow! Needed 5125256, had 4000000
+Error: Jacobian buffer overflow! Needed 5126649, had 4000000
+Error: Jacobian buffer overflow! Needed 5128047, had 4000000
+Error: Jacobian buffer overflow! Needed 5129446, had 4000000
+Error: Jacobian buffer overflow! Needed 5130845, had 4000000
+Error: Jacobian buffer overflow! Needed 5132244, had 4000000
+Error: Jacobian buffer overflow! Needed 5133643, had 4000000
+Error: Jacobian buffer overflow! Needed 5135042, had 4000000
+Error: Jacobian buffer overflow! Needed 5136441, had 4000000
+Error: Jacobian buffer overflow! Needed 5137840, had 4000000
+Error: Jacobian buffer overflow! Needed 5139234, had 4000000
+Error: Jacobian buffer overflow! Needed 5140627, had 4000000
+Error: Jacobian buffer overflow! Needed 5142025, had 4000000
+Error: Jacobian buffer overflow! Needed 5143424, had 4000000
+Error: Jacobian buffer overflow! Needed 5144823, had 4000000
+Error: Jacobian buffer overflow! Needed 5146222, had 4000000
+Error: Jacobian buffer overflow! Needed 5147621, had 4000000
+Error: Jacobian buffer overflow! Needed 5149020, had 4000000
+Error: Jacobian buffer overflow! Needed 5150419, had 4000000
+Error: Jacobian buffer overflow! Needed 5151818, had 4000000
+Error: Jacobian buffer overflow! Needed 5153212, had 4000000
+Error: Jacobian buffer overflow! Needed 5154606, had 4000000
+Error: Jacobian buffer overflow! Needed 5156005, had 4000000
+Error: Jacobian buffer overflow! Needed 5157404, had 4000000
+Error: Jacobian buffer overflow! Needed 5158803, had 4000000
+Error: Jacobian buffer overflow! Needed 5160202, had 4000000
+Error: Jacobian buffer overflow! Needed 5161601, had 4000000
+Error: Jacobian buffer overflow! Needed 5163000, had 4000000
+Error: Jacobian buffer overflow! Needed 5164399, had 4000000
+Error: Jacobian buffer overflow! Needed 5165798, had 4000000
+Error: Jacobian buffer overflow! Needed 5167192, had 4000000
+Error: Jacobian buffer overflow! Needed 5168586, had 4000000
+Error: Jacobian buffer overflow! Needed 5169981, had 4000000
+Error: Jacobian buffer overflow! Needed 5171375, had 4000000
+Error: Jacobian buffer overflow! Needed 5172769, had 4000000
+Error: Jacobian buffer overflow! Needed 5174163, had 4000000
+Error: Jacobian buffer overflow! Needed 5175557, had 4000000
+Error: Jacobian buffer overflow! Needed 5176951, had 4000000
+Error: Jacobian buffer overflow! Needed 5178345, had 4000000
+Error: Jacobian buffer overflow! Needed 5179739, had 4000000
+Error: Jacobian buffer overflow! Needed 5181132, had 4000000
+Error: Jacobian buffer overflow! Needed 5182525, had 4000000
+Error: Jacobian buffer overflow! Needed 5183918, had 4000000
+Error: Jacobian buffer overflow! Needed 5185311, had 4000000
+Error: Jacobian buffer overflow! Needed 5186704, had 4000000
+Error: Jacobian buffer overflow! Needed 5188097, had 4000000
+Error: Jacobian buffer overflow! Needed 5189490, had 4000000
+Error: Jacobian buffer overflow! Needed 5190883, had 4000000
+Error: Jacobian buffer overflow! Needed 5192276, had 4000000
+Error: Jacobian buffer overflow! Needed 5193669, had 4000000
+Error: Jacobian buffer overflow! Needed 5195062, had 4000000
+Error: Jacobian buffer overflow! Needed 5196455, had 4000000
+Error: Jacobian buffer overflow! Needed 5197852, had 4000000
+Error: Jacobian buffer overflow! Needed 5199250, had 4000000
+Error: Jacobian buffer overflow! Needed 5200648, had 4000000
+Error: Jacobian buffer overflow! Needed 5202046, had 4000000
+Error: Jacobian buffer overflow! Needed 5203444, had 4000000
+Error: Jacobian buffer overflow! Needed 5204842, had 4000000
+Error: Jacobian buffer overflow! Needed 5206240, had 4000000
+Error: Jacobian buffer overflow! Needed 5207638, had 4000000
+Error: Jacobian buffer overflow! Needed 5209032, had 4000000
+Error: Jacobian buffer overflow! Needed 5210426, had 4000000
+Error: Jacobian buffer overflow! Needed 5211825, had 4000000
+Error: Jacobian buffer overflow! Needed 5213224, had 4000000
+Error: Jacobian buffer overflow! Needed 5214623, had 4000000
+Error: Jacobian buffer overflow! Needed 5216022, had 4000000
+Error: Jacobian buffer overflow! Needed 5217421, had 4000000
+Error: Jacobian buffer overflow! Needed 5218820, had 4000000
+Error: Jacobian buffer overflow! Needed 5220219, had 4000000
+Error: Jacobian buffer overflow! Needed 5221618, had 4000000
+Error: Jacobian buffer overflow! Needed 5223012, had 4000000
+Error: Jacobian buffer overflow! Needed 5224406, had 4000000
+Error: Jacobian buffer overflow! Needed 5225805, had 4000000
+Error: Jacobian buffer overflow! Needed 5227204, had 4000000
+Error: Jacobian buffer overflow! Needed 5228603, had 4000000
+Error: Jacobian buffer overflow! Needed 5230002, had 4000000
+Error: Jacobian buffer overflow! Needed 5231401, had 4000000
+Error: Jacobian buffer overflow! Needed 5232800, had 4000000
+Error: Jacobian buffer overflow! Needed 5234199, had 4000000
+Error: Jacobian buffer overflow! Needed 5235598, had 4000000
+Error: Jacobian buffer overflow! Needed 5236992, had 4000000
+Error: Jacobian buffer overflow! Needed 5238385, had 4000000
+Error: Jacobian buffer overflow! Needed 5239783, had 4000000
+Error: Jacobian buffer overflow! Needed 5241182, had 4000000
+Error: Jacobian buffer overflow! Needed 5242581, had 4000000
+Error: Jacobian buffer overflow! Needed 5243980, had 4000000
+Error: Jacobian buffer overflow! Needed 5245379, had 4000000
+Error: Jacobian buffer overflow! Needed 5246778, had 4000000
+Error: Jacobian buffer overflow! Needed 5248177, had 4000000
+Error: Jacobian buffer overflow! Needed 5249576, had 4000000
+Error: Jacobian buffer overflow! Needed 5250970, had 4000000
+Error: Jacobian buffer overflow! Needed 5252363, had 4000000
+Error: Jacobian buffer overflow! Needed 5253761, had 4000000
+Error: Jacobian buffer overflow! Needed 5255160, had 4000000
+Error: Jacobian buffer overflow! Needed 5256559, had 4000000
+Error: Jacobian buffer overflow! Needed 5257958, had 4000000
+Error: Jacobian buffer overflow! Needed 5259357, had 4000000
+Error: Jacobian buffer overflow! Needed 5260756, had 4000000
+Error: Jacobian buffer overflow! Needed 5262155, had 4000000
+Error: Jacobian buffer overflow! Needed 5263554, had 4000000
+Error: Jacobian buffer overflow! Needed 5264948, had 4000000
+Error: Jacobian buffer overflow! Needed 5266342, had 4000000
+Error: Jacobian buffer overflow! Needed 5267741, had 4000000
+Error: Jacobian buffer overflow! Needed 5269140, had 4000000
+Error: Jacobian buffer overflow! Needed 5270539, had 4000000
+Error: Jacobian buffer overflow! Needed 5271938, had 4000000
+Error: Jacobian buffer overflow! Needed 5273337, had 4000000
+Error: Jacobian buffer overflow! Needed 5274736, had 4000000
+Error: Jacobian buffer overflow! Needed 5276135, had 4000000
+Error: Jacobian buffer overflow! Needed 5277534, had 4000000
+Error: Jacobian buffer overflow! Needed 5278928, had 4000000
+Error: Jacobian buffer overflow! Needed 5280321, had 4000000
+Error: Jacobian buffer overflow! Needed 5281719, had 4000000
+Error: Jacobian buffer overflow! Needed 5283118, had 4000000
+Error: Jacobian buffer overflow! Needed 5284517, had 4000000
+Error: Jacobian buffer overflow! Needed 5285916, had 4000000
+Error: Jacobian buffer overflow! Needed 5287315, had 4000000
+Error: Jacobian buffer overflow! Needed 5288714, had 4000000
+Error: Jacobian buffer overflow! Needed 5290113, had 4000000
+Error: Jacobian buffer overflow! Needed 5291512, had 4000000
+Error: Jacobian buffer overflow! Needed 5292906, had 4000000
+Error: Jacobian buffer overflow! Needed 5294299, had 4000000
+Error: Jacobian buffer overflow! Needed 5295697, had 4000000
+Error: Jacobian buffer overflow! Needed 5297096, had 4000000
+Error: Jacobian buffer overflow! Needed 5298495, had 4000000
+Error: Jacobian buffer overflow! Needed 5299894, had 4000000
+Error: Jacobian buffer overflow! Needed 5301293, had 4000000
+Error: Jacobian buffer overflow! Needed 5302692, had 4000000
+Error: Jacobian buffer overflow! Needed 5304091, had 4000000
+Error: Jacobian buffer overflow! Needed 5305490, had 4000000
+Error: Jacobian buffer overflow! Needed 5306884, had 4000000
+Error: Jacobian buffer overflow! Needed 5308277, had 4000000
+Error: Jacobian buffer overflow! Needed 5309671, had 4000000
+Error: Jacobian buffer overflow! Needed 5311065, had 4000000
+Error: Jacobian buffer overflow! Needed 5312459, had 4000000
+Error: Jacobian buffer overflow! Needed 5313853, had 4000000
+Error: Jacobian buffer overflow! Needed 5315247, had 4000000
+Error: Jacobian buffer overflow! Needed 5316641, had 4000000
+Error: Jacobian buffer overflow! Needed 5318035, had 4000000
+Error: Jacobian buffer overflow! Needed 5319429, had 4000000
+Error: Jacobian buffer overflow! Needed 5320822, had 4000000
+Error: Jacobian buffer overflow! Needed 5322215, had 4000000
+Error: Jacobian buffer overflow! Needed 5323608, had 4000000
+Error: Jacobian buffer overflow! Needed 5325001, had 4000000
+Error: Jacobian buffer overflow! Needed 5326394, had 4000000
+Error: Jacobian buffer overflow! Needed 5327787, had 4000000
+Error: Jacobian buffer overflow! Needed 5329180, had 4000000
+Error: Jacobian buffer overflow! Needed 5330573, had 4000000
+Error: Jacobian buffer overflow! Needed 5331966, had 4000000
+Error: Jacobian buffer overflow! Needed 5333359, had 4000000
+Error: Jacobian buffer overflow! Needed 5334752, had 4000000
+Error: Jacobian buffer overflow! Needed 5336145, had 4000000
+Error: Jacobian buffer overflow! Needed 5337542, had 4000000
+Error: Jacobian buffer overflow! Needed 5338940, had 4000000
+Error: Jacobian buffer overflow! Needed 5340338, had 4000000
+Error: Jacobian buffer overflow! Needed 5341736, had 4000000
+Error: Jacobian buffer overflow! Needed 5343134, had 4000000
+Error: Jacobian buffer overflow! Needed 5344532, had 4000000
+Error: Jacobian buffer overflow! Needed 5345930, had 4000000
+Error: Jacobian buffer overflow! Needed 5347328, had 4000000
+Error: Jacobian buffer overflow! Needed 5348722, had 4000000
+Error: Jacobian buffer overflow! Needed 5350115, had 4000000
+Error: Jacobian buffer overflow! Needed 5351513, had 4000000
+Error: Jacobian buffer overflow! Needed 5352912, had 4000000
+Error: Jacobian buffer overflow! Needed 5354311, had 4000000
+Error: Jacobian buffer overflow! Needed 5355710, had 4000000
+Error: Jacobian buffer overflow! Needed 5357109, had 4000000
+Error: Jacobian buffer overflow! Needed 5358508, had 4000000
+Error: Jacobian buffer overflow! Needed 5359907, had 4000000
+Error: Jacobian buffer overflow! Needed 5361306, had 4000000
+Error: Jacobian buffer overflow! Needed 5362700, had 4000000
+Error: Jacobian buffer overflow! Needed 5364093, had 4000000
+Error: Jacobian buffer overflow! Needed 5365491, had 4000000
+Error: Jacobian buffer overflow! Needed 5366890, had 4000000
+Error: Jacobian buffer overflow! Needed 5368289, had 4000000
+Error: Jacobian buffer overflow! Needed 5369688, had 4000000
+Error: Jacobian buffer overflow! Needed 5371087, had 4000000
+Error: Jacobian buffer overflow! Needed 5372486, had 4000000
+Error: Jacobian buffer overflow! Needed 5373885, had 4000000
+Error: Jacobian buffer overflow! Needed 5375284, had 4000000
+Error: Jacobian buffer overflow! Needed 5376678, had 4000000
+Error: Jacobian buffer overflow! Needed 5378071, had 4000000
+Error: Jacobian buffer overflow! Needed 5379469, had 4000000
+Error: Jacobian buffer overflow! Needed 5380868, had 4000000
+Error: Jacobian buffer overflow! Needed 5382267, had 4000000
+Error: Jacobian buffer overflow! Needed 5383666, had 4000000
+Error: Jacobian buffer overflow! Needed 5385065, had 4000000
+Error: Jacobian buffer overflow! Needed 5386464, had 4000000
+Error: Jacobian buffer overflow! Needed 5387863, had 4000000
+Error: Jacobian buffer overflow! Needed 5389262, had 4000000
+Error: Jacobian buffer overflow! Needed 5390656, had 4000000
+Error: Jacobian buffer overflow! Needed 5392049, had 4000000
+Error: Jacobian buffer overflow! Needed 5393447, had 4000000
+Error: Jacobian buffer overflow! Needed 5394846, had 4000000
+Error: Jacobian buffer overflow! Needed 5396245, had 4000000
+Error: Jacobian buffer overflow! Needed 5397644, had 4000000
+Error: Jacobian buffer overflow! Needed 5399043, had 4000000
+Error: Jacobian buffer overflow! Needed 5400442, had 4000000
+Error: Jacobian buffer overflow! Needed 5401841, had 4000000
+Error: Jacobian buffer overflow! Needed 5403240, had 4000000
+Error: Jacobian buffer overflow! Needed 5404634, had 4000000
+Error: Jacobian buffer overflow! Needed 5406027, had 4000000
+Error: Jacobian buffer overflow! Needed 5407425, had 4000000
+Error: Jacobian buffer overflow! Needed 5408824, had 4000000
+Error: Jacobian buffer overflow! Needed 5410223, had 4000000
+Error: Jacobian buffer overflow! Needed 5411622, had 4000000
+Error: Jacobian buffer overflow! Needed 5413021, had 4000000
+Error: Jacobian buffer overflow! Needed 5414420, had 4000000
+Error: Jacobian buffer overflow! Needed 5415819, had 4000000
+Error: Jacobian buffer overflow! Needed 5417218, had 4000000
+Error: Jacobian buffer overflow! Needed 5418612, had 4000000
+Error: Jacobian buffer overflow! Needed 5420005, had 4000000
+Error: Jacobian buffer overflow! Needed 5421403, had 4000000
+Error: Jacobian buffer overflow! Needed 5422802, had 4000000
+Error: Jacobian buffer overflow! Needed 5424201, had 4000000
+Error: Jacobian buffer overflow! Needed 5425600, had 4000000
+Error: Jacobian buffer overflow! Needed 5426999, had 4000000
+Error: Jacobian buffer overflow! Needed 5428398, had 4000000
+Error: Jacobian buffer overflow! Needed 5429797, had 4000000
+Error: Jacobian buffer overflow! Needed 5431196, had 4000000
+Error: Jacobian buffer overflow! Needed 5432590, had 4000000
+Error: Jacobian buffer overflow! Needed 5433983, had 4000000
+Error: Jacobian buffer overflow! Needed 5435381, had 4000000
+Error: Jacobian buffer overflow! Needed 5436780, had 4000000
+Error: Jacobian buffer overflow! Needed 5438179, had 4000000
+Error: Jacobian buffer overflow! Needed 5439578, had 4000000
+Error: Jacobian buffer overflow! Needed 5440977, had 4000000
+Jacobian: 5600164 non-zeros
+Current cost: 4.679079e-06
+CUSPARSE API failed at line 2239 with error: internal error (7)

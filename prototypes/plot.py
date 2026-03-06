@@ -196,3 +196,43 @@ plt.tight_layout(pad=3.0) # pad adds a bit of extra breathing room between plots
 
 # EXPORT: Save everything as one high-resolution file
 fig.savefig('Combined_Simulation_Dashboard.png', dpi=300, bbox_inches='tight')
+
+
+# -------------------------------------------------------------------
+# Boundary Value Check (Verification of No-Slip Condition)
+# -------------------------------------------------------------------
+print("--- Boundary Velocity Check ---")
+print("Expected value at walls is 0.0 (No-Slip Condition)")
+
+# 1. Y-axis Boundaries (Bottom and Top walls)
+y_min_wall_max_vel = np.max(velmag[:, 0, :])
+y_max_wall_max_vel = np.max(velmag[:, -1, :])
+print(f"Max velocity at Y_min boundary: {y_min_wall_max_vel:.8f}")
+print(f"Max velocity at Y_max boundary: {y_max_wall_max_vel:.8f}")
+
+# 2. Z-axis Boundaries (Side walls)
+z_min_wall_max_vel = np.max(velmag[:, :, 0])
+z_max_wall_max_vel = np.max(velmag[:, :, -1])
+print(f"Max velocity at Z_min boundary: {z_min_wall_max_vel:.8f}")
+print(f"Max velocity at Z_max boundary: {z_max_wall_max_vel:.8f}")
+
+# Optional: Check overall minimum velocity in the entire domain
+print(f"Global minimum velocity in domain: {np.min(velmag):.8f}")
+print("-------------------------------")
+
+print("--- Checking Mass Conservation (Divergence) ---")
+# Assuming uniform grid spacing for a quick estimation. 
+# Adjust dx, dy, dz based on your actual grid.
+dx = xcoor[1,0,0] - xcoor[0,0,0]
+dy = ycoor[0,1,0] - ycoor[0,0,0]
+dz = zcoor[0,0,1] - zcoor[0,0,0]
+
+# Calculate gradients (assuming u is indexed [x, y, z])
+du_dx = np.gradient(u, dx, axis=0)
+dv_dy = np.gradient(v, dy, axis=1)
+dw_dz = np.gradient(w, dz, axis=2)
+
+divergence = du_dx + dv_dy + dw_dz
+
+print(f"Max absolute divergence: {np.max(np.abs(divergence)):.8f}")
+print(f"Average divergence: {np.mean(np.abs(divergence)):.8f}")
