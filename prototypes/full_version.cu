@@ -24,7 +24,7 @@
 #include <cudss.h> 
 #include <cublas_v2.h>
 #include <cnpy.h>
-
+#include <fstream>
 
 
 
@@ -302,7 +302,8 @@ __global__ void boundary_conditions_apply(
                 p[idx_3d_batch(i, j, zN, l, sizeY, sizeZ, grain)];
         }
 
-        if (k == 0 || k == zN + 1  && i > 0 && i < xN + 1) {
+        // if (k == 0 || k == zN + 1  && i > 0 && i < xN + 1)
+        if ((k == 0 || k == zN + 1) && i > 0 && i < xN + 1) {
           u[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
           v[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
           w[idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain)] = 0.0; 
@@ -326,7 +327,7 @@ __global__ void boundary_conditions_apply(
             w[idx_3d_batch(xN + 1, j, k, l, sizeY, sizeZ, grain)] = 
                 w[idx_3d_batch(xN, j, k, l, sizeY, sizeZ, grain)];
             p[idx_3d_batch(xN + 1, j, k, l, sizeY, sizeZ, grain)] = 0.0;
-        }
+        } //Check this for the outlet 
     }
 }
 
@@ -463,7 +464,7 @@ __global__ void boundary_conditions_apply_single(
         p[idx_3d(i, yN + 1, k, sizeY, sizeZ)] = p[idx_3d(i, yN, k, sizeY, sizeZ)];
     }
 
-    if (j == 0 || j == yN + 1 && i > 0 && i < xN + 1) {
+    if ((j == 0 || j == yN + 1) && i > 0 && i < xN + 1) {
         u[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
         v[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
         w[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
@@ -476,7 +477,7 @@ __global__ void boundary_conditions_apply_single(
         p[idx_3d(i, j, zN + 1, sizeY, sizeZ)] = p[idx_3d(i, j, zN, sizeY, sizeZ)];
     }
 
-    if (k == 0 || k == zN + 1  && i > 0 && i < xN + 1) {
+    if ((k == 0 || k == zN + 1)  && i > 0 && i < xN + 1) {
         u[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
         v[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
         w[idx_3d(i, j, k, sizeY, sizeZ)] = 0.0;    
@@ -760,6 +761,8 @@ kernel_u_momentum(
         result += 0.5 * dx_dy * (u_kp * w[base_idx + stride_k] - u_km * w[base_idx - stride_k]);
         // result += dy_dz * (p[base_idx + stride_i] - p[base_idx]);
         result += (dy_dz / 2.0) * (p[base_idx + stride_i] - p[base_idx - stride_i]);
+                // result += (dy_dz / 2.0) * (p[base_idx + stride_i] - p[base_idx]);
+
         result -= inv_Re * ((dy_dz/dx) * (u_ip - 2.0*u_c + u_im) +
                            (dx_dz/dy) * (u_jp - 2.0*u_c + u_jm) +
                            (dx_dy/dz) * (u_kp - 2.0*u_c + u_km));
@@ -913,7 +916,7 @@ std::tuple<double*,double*,double*,double*> boundary_conditions_final(double *ys
     int sizeY = yN + 2;
     int sizeZ = zN + 2;
     int totalSize = sizeX * sizeY * sizeZ;
-    int nCell = 4 * xN * yN * zN;
+    // int nCell = 4 * xN * yN * zN;
 
     
     double *d_u_inlet,*ud, *vd, *wd, *pd;
@@ -922,7 +925,7 @@ std::tuple<double*,double*,double*,double*> boundary_conditions_final(double *ys
     CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize * sizeof(double))));
     CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize * sizeof(double))));
     CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize * sizeof(double))));
-    CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(double))));
+    // CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(double))));
 
     int inletSize = sizeY * sizeZ;
     CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
@@ -947,7 +950,7 @@ std::tuple<double*,double*,double*,double*> boundary_conditions_final(double *ys
     CUDA_CHECK(cudaGetLastError());
 
     CUDA_CHECK(cudaFree(d_u_inlet));
-    CUDA_CHECK(cudaFree(ysol));
+    // CUDA_CHECK(cudaFree(ysol));
 
     // print_gpu_array(ud, totalSize);
 
@@ -1203,6 +1206,235 @@ double* uv_velocity_single_direct(const double Re, double *y,
  * for freeing these resources using `cudaFree`.
  * @warning This function performs significant device memory allocation. Ensure sufficient GPU memory is available.
  */
+// std::pair<double*, std::tuple<int*, int*, double*, int>>
+// Residuals_Sparse_Jacobian_finite_diff(
+//     const double Re, double *y,
+//     const int xN, const int yN, const int zN,
+//     const double *u_inlet,
+//     const double dx, const double dy, const double dz)
+// {
+//     const int grain = 1;
+//     const int sizeX = xN + 2;
+//     const int sizeY = yN + 2;
+//     const int sizeZ = zN + 2;
+//     const int totalSize = sizeX * sizeY * sizeZ;
+//     const int nCell = 4 * xN * yN * zN;
+//     const double EPS = 1e-6;  // sqrt of machine epsilon for double
+//     std::vector<double> h(nCell);
+
+//     for (int j = 0; j < nCell; ++j) {
+//         double temp = y[j];
+//         // Use max to handle near-zero values
+//         h[j] = EPS * std::max(1.0, std::abs(temp));
+        
+//         // Ensure we actually perturb the value (avoid roundoff)
+//         double y_perturbed = temp + h[j];
+//         h[j] = y_perturbed - temp;  // Actual perturbation achieved
+        
+//         // Store back
+//         y[j] = temp;
+//     }
+
+//     double* d_fold=nullptr;
+//     d_fold=uv_velocity_single(Re, y, xN, yN, zN, u_inlet, dx, dy, dz);
+
+//     double *hd, *d_ysol, *d_u_inlet;
+//     CUDA_CHECK(cudaMalloc(&hd, align_size(nCell * sizeof(double))));
+//     CUDA_CHECK(cudaMemcpy(hd, h.data(), nCell * sizeof(double), cudaMemcpyHostToDevice));
+//     CUDA_CHECK(cudaMalloc(&d_ysol, align_size(nCell * sizeof(double))));
+//     CUDA_CHECK(cudaMemcpy(d_ysol, y, nCell * sizeof(double), cudaMemcpyHostToDevice));
+
+//     int inletSize = sizeY * sizeZ;
+//     CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
+//     CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(double), cudaMemcpyHostToDevice));
+
+//     size_t max_nnz = (size_t)nCell * 1000; //Guess based on the sparsity
+//     int *d_all_rows, *d_all_cols;
+//     double *d_all_vals;
+//     int *d_global_counter;
+    
+//     CUDA_CHECK(cudaMalloc(&d_all_rows, max_nnz * sizeof(int)));
+//     CUDA_CHECK(cudaMalloc(&d_all_cols, max_nnz * sizeof(int)));
+//     CUDA_CHECK(cudaMalloc(&d_all_vals, max_nnz * sizeof(double)));
+//     CUDA_CHECK(cudaMalloc(&d_global_counter, sizeof(int)));
+//     CUDA_CHECK(cudaMemset(d_global_counter, 0, sizeof(int)));
+
+//     int chunk_size = std::min(grain, nCell);
+//     int num_chunks = (nCell + chunk_size - 1) / chunk_size;
+//     int n_threads = std::min(1 , omp_get_max_threads());
+//     int chunks_per_thread = (num_chunks + n_threads - 1) / n_threads;
+
+//     std::cout << "Building Jacobian (split kernels)..." << std::endl;
+
+// #pragma omp parallel num_threads(n_threads)
+//     {
+//         int tid = omp_get_thread_num();
+//         cudaStream_t stream;
+//         CUDA_CHECK(cudaStreamCreate(&stream));
+
+//         double *dev_out, *ud, *vd, *wd, *pd, *d_ysol_batch;
+//         int *d_t_batch;
+
+//         size_t totalSize_grain = (size_t)totalSize * grain;
+//         CUDA_CHECK(cudaMalloc(&dev_out, align_size((size_t)grain * nCell * sizeof(double))));
+//         CUDA_CHECK(cudaMalloc(&ud, align_size(totalSize_grain * sizeof(double))));
+//         CUDA_CHECK(cudaMalloc(&vd, align_size(totalSize_grain * sizeof(double))));
+//         CUDA_CHECK(cudaMalloc(&wd, align_size(totalSize_grain * sizeof(double))));
+//         CUDA_CHECK(cudaMalloc(&pd, align_size(totalSize_grain * sizeof(double))));
+//         CUDA_CHECK(cudaMalloc(&d_ysol_batch, align_size((size_t)grain * nCell * sizeof(double))));
+//         CUDA_CHECK(cudaMalloc(&d_t_batch, align_size(grain * sizeof(int))));
+
+//         CUDA_CHECK(cudaMemsetAsync(ud, 0, totalSize_grain * sizeof(double), stream));
+//         CUDA_CHECK(cudaMemsetAsync(vd, 0, totalSize_grain * sizeof(double), stream));
+//         CUDA_CHECK(cudaMemsetAsync(wd, 0, totalSize_grain * sizeof(double), stream));
+//         CUDA_CHECK(cudaMemsetAsync(pd, 0, totalSize_grain * sizeof(double), stream));
+
+//         std::vector<int> t_batch_host(grain);
+//         int chunk_start = tid * chunks_per_thread;
+//         int chunk_end = std::min(num_chunks, (tid + 1) * chunks_per_thread);
+
+//         for (int chunk = chunk_start; chunk < chunk_end; ++chunk) {
+//             int start = chunk * chunk_size;
+//             int end = std::min(nCell, start + chunk_size);
+//             int current_grain = end - start;
+
+//             for (int t = start; t < end; ++t)
+//                 t_batch_host[t - start] = t;
+
+//             CUDA_CHECK(cudaMemcpyAsync(d_t_batch, t_batch_host.data(),
+//                                       current_grain * sizeof(int),
+//                                       cudaMemcpyHostToDevice, stream));
+
+//             int ysol_threads = 256;
+//             int ysol_blocks = (nCell + ysol_threads - 1) / ysol_threads;
+//             build_ysol_batch_kernel<<<ysol_blocks, ysol_threads, 0, stream>>>(
+//                 d_ysol, hd, d_ysol_batch, nCell, current_grain, d_t_batch);
+//             // CUDA_CHECK(cudaGetLastError());
+
+//             int nc = xN * yN * zN;
+//             int threads = 256; //Prefer 1d for better coalesced memory access
+//             int blocks = (nc + threads - 1) / threads;
+//             boundary_conditions_initialization<<<blocks, threads, 0, stream>>>(
+//             d_ysol_batch, ud, vd, wd, pd, xN, yN, zN, current_grain);
+//             // CUDA_CHECK(cudaGetLastError());
+
+//             dim3 blk(8, 8, 4);
+//             dim3 grd((sizeX + blk.x - 1) / blk.x,
+//                     (sizeY + blk.y - 1) / blk.y,
+//                     (sizeZ + blk.z - 1) / blk.z);
+//             boundary_conditions_apply<<<grd, blk, 0, stream>>>(
+//                 d_u_inlet, ud, vd, wd, pd, xN, yN, zN, current_grain);
+//             // CUDA_CHECK(cudaGetLastError());
+
+//             dim3 t(8, 8, 4);
+//             dim3 bks((xN + t.x - 1) / t.x,
+//                     (yN + t.y - 1) / t.y,
+//                     (zN + t.z - 1) / t.z);
+
+//             kernel_u_momentum<<<bks, t, 0, stream>>>(
+//                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
+//                 dx, dy, dz, Re, sizeY, sizeZ);
+//             // CUDA_CHECK(cudaGetLastError());
+
+//             kernel_v_momentum<<<bks, t, 0, stream>>>(
+//                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
+//                 dx, dy, dz, Re, sizeY, sizeZ);
+//             // CUDA_CHECK(cudaGetLastError());
+
+//             kernel_w_momentum<<<bks, t, 0, stream>>>(
+//                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
+//                 dx, dy, dz, Re, sizeY, sizeZ);
+//             // CUDA_CHECK(cudaGetLastError());
+
+//             kernel_continuity<<<bks, t, 0, stream>>>(
+//                 current_grain, dev_out, ud, vd, wd, xN, yN, zN,
+//                 dx, dy, dz, sizeY, sizeZ);
+//             // CUDA_CHECK(cudaGetLastError());
+//             // ================================================================
+
+//             dim3 tt(32, 4);
+//             dim3 tg((nCell + tt.x - 1) / tt.x,
+//                    (current_grain + tt.y - 1) / tt.y);
+//             build_jacobian_entries<<<tg, tt, 0, stream>>>(
+//                 dev_out, d_fold, hd,
+//                 d_all_rows, d_all_cols, d_all_vals,
+//                 d_global_counter,
+//                 nCell, current_grain, start);
+//             CUDA_CHECK(cudaGetLastError());
+            
+//             int total_attempted_nnz;
+//             cudaMemcpy(&total_attempted_nnz, d_global_counter, sizeof(int), cudaMemcpyDeviceToHost);
+//             if (total_attempted_nnz > max_nnz) {
+//                 printf("Error: Jacobian buffer overflow! Needed %d, had %zu\n", total_attempted_nnz, max_nnz);
+//             }
+
+            
+//             if (chunk % 1000 == 0) {
+//                 std::cout << "Thread " << tid << ": " << chunk << "/" << chunk_end << std::endl;
+//             }
+//             CUDA_CHECK(cudaStreamSynchronize(stream));
+//         }
+    
+        
+
+
+        
+//         CUDA_CHECK(cudaGetLastError()); //Check once after synchronize
+//         CUDA_CHECK(cudaFree(dev_out));
+//         CUDA_CHECK(cudaFree(ud));
+//         CUDA_CHECK(cudaFree(vd));
+//         CUDA_CHECK(cudaFree(wd));
+//         CUDA_CHECK(cudaFree(pd));
+//         CUDA_CHECK(cudaFree(d_ysol_batch));
+//         CUDA_CHECK(cudaFree(d_t_batch));
+//         CUDA_CHECK(cudaStreamDestroy(stream));
+//     }
+
+//     int nnz;
+//     CUDA_CHECK(cudaMemcpy(&nnz, d_global_counter, sizeof(int), cudaMemcpyDeviceToHost));
+//     std::cout << "Jacobian: " << nnz << " non-zeros" << std::endl;
+
+    
+//     CUDA_CHECK(cudaFree(hd));
+//     CUDA_CHECK(cudaFree(d_ysol));
+//     CUDA_CHECK(cudaFree(d_u_inlet));
+//     CUDA_CHECK(cudaFree(d_global_counter));
+
+//     // --- DIAGONAL SANITY CHECK ---
+//     int *h_rows = new int[nnz];
+//     int *h_cols = new int[nnz];
+//     double *h_vals = new double[nnz];
+    
+//     CUDA_CHECK(cudaMemcpy(h_rows, d_all_rows, nnz * sizeof(int), cudaMemcpyDeviceToHost));
+//     CUDA_CHECK(cudaMemcpy(h_cols, d_all_cols, nnz * sizeof(int), cudaMemcpyDeviceToHost));
+//     CUDA_CHECK(cudaMemcpy(h_vals, d_all_vals, nnz * sizeof(double), cudaMemcpyDeviceToHost));
+
+//     int missing_or_zero_diagonals = 0;
+//     std::vector<bool> has_diag(nCell, false);
+
+//     for (int i = 0; i < nnz; ++i) {
+//         // If row == col, it's on the main diagonal. 
+//         // We check if it's larger than machine epsilon to count as "non-zero"
+//         if (h_rows[i] == h_cols[i] && std::abs(h_vals[i]) > 1e-10) {
+//             has_diag[h_rows[i]] = true;
+//         }
+//     }
+
+//     for (int i = 0; i < nCell; ++i) {
+//         if (!has_diag[i]) {
+//             missing_or_zero_diagonals++;
+//         }
+//     }
+
+//     std::cout << "CRITICAL DIAGONAL CHECK: " << missing_or_zero_diagonals 
+//               << " out of " << nCell << " diagonal entries are zero or missing!" << std::endl;
+
+//     delete[] h_rows; delete[] h_cols; delete[] h_vals;
+//     // -----------------------------
+
+//     return {d_fold, std::make_tuple(d_all_rows, d_all_cols, d_all_vals, nnz)};
+// } //This creates artifacts
+
 std::pair<double*, std::tuple<int*, int*, double*, int>>
 Residuals_Sparse_Jacobian_finite_diff(
     const double Re, double *y,
@@ -1232,9 +1464,6 @@ Residuals_Sparse_Jacobian_finite_diff(
         y[j] = temp;
     }
 
-    double* d_fold=nullptr;
-    d_fold=uv_velocity_single(Re, y, xN, yN, zN, u_inlet, dx, dy, dz);
-
     double *hd, *d_ysol, *d_u_inlet;
     CUDA_CHECK(cudaMalloc(&hd, align_size(nCell * sizeof(double))));
     CUDA_CHECK(cudaMemcpy(hd, h.data(), nCell * sizeof(double), cudaMemcpyHostToDevice));
@@ -1245,7 +1474,77 @@ Residuals_Sparse_Jacobian_finite_diff(
     CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
     CUDA_CHECK(cudaMemcpy(d_u_inlet, u_inlet, inletSize * sizeof(double), cudaMemcpyHostToDevice));
 
-    size_t max_nnz = (size_t)nCell * 1000; //Guess based on the sparsity
+    // =========================================================================
+    // 1. GENERATE BASELINE (d_fold) USING IDENTICAL KERNELS (Replaces uv_velocity_single)
+    // =========================================================================
+    std::cout << "Calculating baseline residuals (d_fold)..." << std::endl;
+    double* d_fold;
+    CUDA_CHECK(cudaMalloc(&d_fold, align_size(nCell * sizeof(double))));
+
+    {
+        double *d_zero_h, *ud_base, *vd_base, *wd_base, *pd_base, *d_ysol_base;
+        int *d_t_batch_base;
+        int current_grain = 1; // Baseline only needs 1 grain
+        size_t totalSize_grain = (size_t)totalSize * current_grain;
+
+        CUDA_CHECK(cudaMalloc(&d_zero_h, align_size(nCell * sizeof(double))));
+        CUDA_CHECK(cudaMemset(d_zero_h, 0, nCell * sizeof(double))); // ZERO perturbation
+
+        CUDA_CHECK(cudaMalloc(&ud_base, align_size(totalSize_grain * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&vd_base, align_size(totalSize_grain * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&wd_base, align_size(totalSize_grain * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&pd_base, align_size(totalSize_grain * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&d_ysol_base, align_size(nCell * sizeof(double))));
+        CUDA_CHECK(cudaMalloc(&d_t_batch_base, align_size(sizeof(int))));
+
+        CUDA_CHECK(cudaMemset(ud_base, 0, totalSize_grain * sizeof(double)));
+        CUDA_CHECK(cudaMemset(vd_base, 0, totalSize_grain * sizeof(double)));
+        CUDA_CHECK(cudaMemset(wd_base, 0, totalSize_grain * sizeof(double)));
+        CUDA_CHECK(cudaMemset(pd_base, 0, totalSize_grain * sizeof(double)));
+
+        int dummy_t = 0; // The specific index doesn't matter since h is 0.0 for all
+        CUDA_CHECK(cudaMemcpy(d_t_batch_base, &dummy_t, sizeof(int), cudaMemcpyHostToDevice));
+
+        int ysol_threads = 256;
+        int ysol_blocks = (nCell + ysol_threads - 1) / ysol_threads;
+        build_ysol_batch_kernel<<<ysol_blocks, ysol_threads>>>(
+            d_ysol, d_zero_h, d_ysol_base, nCell, current_grain, d_t_batch_base);
+
+        int nc = xN * yN * zN;
+        int threads = 256;
+        int blocks = (nc + threads - 1) / threads;
+        boundary_conditions_initialization<<<blocks, threads>>>(
+            d_ysol_base, ud_base, vd_base, wd_base, pd_base, xN, yN, zN, current_grain);
+
+        dim3 blk(8, 8, 4);
+        dim3 grd((sizeX + blk.x - 1) / blk.x, (sizeY + blk.y - 1) / blk.y, (sizeZ + blk.z - 1) / blk.z);
+        boundary_conditions_apply<<<grd, blk>>>(
+            d_u_inlet, ud_base, vd_base, wd_base, pd_base, xN, yN, zN, current_grain);
+
+        dim3 t(8, 8, 4);
+        dim3 bks((xN + t.x - 1) / t.x, (yN + t.y - 1) / t.y, (zN + t.z - 1) / t.z);
+
+        kernel_u_momentum<<<bks, t>>>(current_grain, d_fold, ud_base, vd_base, pd_base, wd_base, xN, yN, zN, dx, dy, dz, Re, sizeY, sizeZ);
+        kernel_v_momentum<<<bks, t>>>(current_grain, d_fold, ud_base, vd_base, pd_base, wd_base, xN, yN, zN, dx, dy, dz, Re, sizeY, sizeZ);
+        kernel_w_momentum<<<bks, t>>>(current_grain, d_fold, ud_base, vd_base, pd_base, wd_base, xN, yN, zN, dx, dy, dz, Re, sizeY, sizeZ);
+        kernel_continuity<<<bks, t>>>(current_grain, d_fold, ud_base, vd_base, wd_base, xN, yN, zN, dx, dy, dz, sizeY, sizeZ);
+
+        CUDA_CHECK(cudaDeviceSynchronize()); // Ensure baseline is fully calculated
+
+        // Free temporary baseline memory
+        CUDA_CHECK(cudaFree(d_zero_h));
+        CUDA_CHECK(cudaFree(ud_base));
+        CUDA_CHECK(cudaFree(vd_base));
+        CUDA_CHECK(cudaFree(wd_base));
+        CUDA_CHECK(cudaFree(pd_base));
+        CUDA_CHECK(cudaFree(d_ysol_base));
+        CUDA_CHECK(cudaFree(d_t_batch_base));
+    }
+    // =========================================================================
+
+
+    // 2. Setup Jacobian sparse matrices arrays
+    size_t max_nnz = (size_t)nCell * 1000; // Guess based on the sparsity
     int *d_all_rows, *d_all_cols;
     double *d_all_vals;
     int *d_global_counter;
@@ -1306,14 +1605,12 @@ Residuals_Sparse_Jacobian_finite_diff(
             int ysol_blocks = (nCell + ysol_threads - 1) / ysol_threads;
             build_ysol_batch_kernel<<<ysol_blocks, ysol_threads, 0, stream>>>(
                 d_ysol, hd, d_ysol_batch, nCell, current_grain, d_t_batch);
-            // CUDA_CHECK(cudaGetLastError());
 
             int nc = xN * yN * zN;
-            int threads = 256; //Prefer 1d for better coalesced memory access
+            int threads = 256; 
             int blocks = (nc + threads - 1) / threads;
             boundary_conditions_initialization<<<blocks, threads, 0, stream>>>(
-            d_ysol_batch, ud, vd, wd, pd, xN, yN, zN, current_grain);
-            // CUDA_CHECK(cudaGetLastError());
+                d_ysol_batch, ud, vd, wd, pd, xN, yN, zN, current_grain);
 
             dim3 blk(8, 8, 4);
             dim3 grd((sizeX + blk.x - 1) / blk.x,
@@ -1321,7 +1618,6 @@ Residuals_Sparse_Jacobian_finite_diff(
                     (sizeZ + blk.z - 1) / blk.z);
             boundary_conditions_apply<<<grd, blk, 0, stream>>>(
                 d_u_inlet, ud, vd, wd, pd, xN, yN, zN, current_grain);
-            // CUDA_CHECK(cudaGetLastError());
 
             dim3 t(8, 8, 4);
             dim3 bks((xN + t.x - 1) / t.x,
@@ -1331,22 +1627,19 @@ Residuals_Sparse_Jacobian_finite_diff(
             kernel_u_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
-            // CUDA_CHECK(cudaGetLastError());
 
             kernel_v_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
-            // CUDA_CHECK(cudaGetLastError());
 
             kernel_w_momentum<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, pd, wd, xN, yN, zN,
                 dx, dy, dz, Re, sizeY, sizeZ);
-            // CUDA_CHECK(cudaGetLastError());
 
             kernel_continuity<<<bks, t, 0, stream>>>(
                 current_grain, dev_out, ud, vd, wd, xN, yN, zN,
                 dx, dy, dz, sizeY, sizeZ);
-            // CUDA_CHECK(cudaGetLastError());
+
             // ================================================================
 
             dim3 tt(32, 4);
@@ -1365,17 +1658,13 @@ Residuals_Sparse_Jacobian_finite_diff(
                 printf("Error: Jacobian buffer overflow! Needed %d, had %zu\n", total_attempted_nnz, max_nnz);
             }
 
-            
             if (chunk % 1000 == 0) {
                 std::cout << "Thread " << tid << ": " << chunk << "/" << chunk_end << std::endl;
             }
+            CUDA_CHECK(cudaStreamSynchronize(stream));
         }
-    
-        
 
-
-        CUDA_CHECK(cudaStreamSynchronize(stream));
-        CUDA_CHECK(cudaGetLastError()); //Check once after synchronize
+        CUDA_CHECK(cudaGetLastError()); 
         CUDA_CHECK(cudaFree(dev_out));
         CUDA_CHECK(cudaFree(ud));
         CUDA_CHECK(cudaFree(vd));
@@ -1389,7 +1678,6 @@ Residuals_Sparse_Jacobian_finite_diff(
     int nnz;
     CUDA_CHECK(cudaMemcpy(&nnz, d_global_counter, sizeof(int), cudaMemcpyDeviceToHost));
     std::cout << "Jacobian: " << nnz << " non-zeros" << std::endl;
-
     
     CUDA_CHECK(cudaFree(hd));
     CUDA_CHECK(cudaFree(d_ysol));
@@ -1409,8 +1697,6 @@ Residuals_Sparse_Jacobian_finite_diff(
     std::vector<bool> has_diag(nCell, false);
 
     for (int i = 0; i < nnz; ++i) {
-        // If row == col, it's on the main diagonal. 
-        // We check if it's larger than machine epsilon to count as "non-zero"
         if (h_rows[i] == h_cols[i] && std::abs(h_vals[i]) > 1e-10) {
             has_diag[h_rows[i]] = true;
         }
@@ -1436,24 +1722,27 @@ std::tuple<double, double, double>
 coordinates(std::vector<double> &xcoor, std::vector<double> &ycoor,
             std::vector<double> &zcoor, const int xN, const int yN,
             const int zN, const double L, const double M, const double N) {
+    
     int xSize = xN + 2;
     int ySize = yN + 2;
     int zSize = zN + 2;
 
-    for (int iz = 0; iz < zSize; ++iz) {
-        for (int iy = 0; iy < ySize; ++iy) {
-            for (int ix = 0; ix < xSize; ++ix) {
-                int idx = idx_3d(ix, iy, iz, ySize, zSize);
-                xcoor[idx] = L * ix / (xSize - 1);
-                ycoor[idx] = M * iy / (ySize - 1);
-                zcoor[idx] = N * iz / (zSize - 1);
-            }
-        }
-    }
-
     double dx = L / (xSize - 1);
     double dy = M / (ySize - 1);
     double dz = N / (zSize - 1);
+
+    for (int ix = 0; ix < xSize; ++ix) {
+        double current_x = ix * dx; 
+        for (int iy = 0; iy < ySize; ++iy) {
+            double current_y = iy * dy; 
+            for (int iz = 0; iz < zSize; ++iz) {
+                int idx = idx_3d(ix, iy, iz, ySize, zSize);
+                xcoor[idx] = current_x;
+                ycoor[idx] = current_y;
+                zcoor[idx] = iz * dz; 
+            }
+        }
+    }
 
     return std::make_tuple(dx, dy, dz);
 }
@@ -1486,7 +1775,7 @@ __global__ void generate_flags_kernel(int nnz, const double* values, char* flags
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < nnz) {
         // 1 = Keep, 0 = Discard
-        flags[idx] = (fabsf(values[idx]) > threshold) ? 1 : 0;
+        flags[idx] = (fabs(values[idx]) > threshold) ? 1 : 0;
     }
 }
 
@@ -2478,6 +2767,7 @@ void sort_coo_matrix_cusparse(
     CHECK_CUSPARSE( cusparseDestroy(handle) )
     CUDA_CHECK(cudaFree(d_permutation));
     CUDA_CHECK(cudaFree(d_buffer));
+    CUDA_CHECK(cudaFree(d_values_sorted));
 }
 
 // Helper kernel to initialize indices: [0, 1, 2, ...]
@@ -2649,7 +2939,7 @@ double L2_norm_squared(cublasHandle_t handle, double * residual, int n)
 __global__ void vel_mag_kernel(int n, const double* u, const double* v, const double* w, double* velmag) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
-        velmag[i] = sqrtf(u[i] * u[i] + v[i] * v[i] + w[i] * w[i]);
+        velmag[i] = sqrt(u[i] * u[i] + v[i] * v[i] + w[i] * w[i]);
     }
 }
 
@@ -2752,7 +3042,8 @@ void addConstantToVector(double *d_vec, double constant, int N) {
 __global__ void check_vector_finite_kernel(const double* data, int n, int* flag) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
-        if (isinf(data[i]) || isnan(data[i] || data[i] > 1e12 || data[i] < 1e-12)) {
+        
+if (isinf(data[i]) || isnan(data[i]) || data[i] > 1e12 || data[i] < 1e-12) {
             atomicExch(flag, 1); // Set flag to 1 if a non-finite value is found
         }
     }
@@ -2891,6 +3182,31 @@ double* levenberg_marquardt_solver(
         auto [d_r, jacobian_coo] = Residuals_Sparse_Jacobian_finite_diff(Re, y.data(), xN, yN, zN, u_inlet, dx, dy, dz);
         auto [d_rows_coo, d_cols_coo, d_vals_coo, nnz] = jacobian_coo;
 
+        //DEBUG
+        //
+            // 1. Allocate Host (CPU) memory
+            // In COO format, all three arrays are size 'nnz'
+            std::vector<int> h_rows_coo(nnz);
+            std::vector<int> h_cols_coo(nnz);
+            std::vector<double> h_vals_coo(nnz);
+
+            // Assuming 'ncell' is in scope to define the matrix size
+            std::vector<int> shape = {nCell, nCell}; 
+
+            // 2. Copy data from Device (GPU) to Host (CPU)
+            CUDA_CHECK(cudaMemcpy(h_rows_coo.data(), d_rows_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost));
+            CUDA_CHECK(cudaMemcpy(h_cols_coo.data(), d_cols_coo, nnz * sizeof(int), cudaMemcpyDeviceToHost));
+            CUDA_CHECK(cudaMemcpy(h_vals_coo.data(), d_vals_coo, nnz * sizeof(double), cudaMemcpyDeviceToHost));
+
+            // 3. Save to a single .npz archive
+            cnpy::npz_save("jacobian_coo.npz", "values", h_vals_coo.data(), {static_cast<size_t>(nnz)}, "w");
+            cnpy::npz_save("jacobian_coo.npz", "row_indices", h_rows_coo.data(), {static_cast<size_t>(nnz)}, "a");
+            cnpy::npz_save("jacobian_coo.npz", "col_indices", h_cols_coo.data(), {static_cast<size_t>(nnz)}, "a");
+            cnpy::npz_save("jacobian_coo.npz", "shape", shape.data(), {2}, "a");
+
+            std::cout << "Successfully exported COO Jacobian. NNZ: " << nnz << std::endl;
+        //
+
         // 2. Calculate current cost
         double cost = square_norm(cublas_handle, d_r, nCell);
         std::cout << "Current cost: " << std::scientific << cost << std::endl;
@@ -2905,7 +3221,7 @@ double* levenberg_marquardt_solver(
             break;
         }
 
-        // 4. Sort Jacobian from COO to CSR for SpMM
+        // 4. Sort Jacobian for CSR
         sort_coo_matrix_cusparse(nCell, nCell, nnz, d_rows_coo, d_cols_coo, d_vals_coo);
 
         // --- Inner LM loop for adjusting lambda ---
@@ -2941,22 +3257,48 @@ double* levenberg_marquardt_solver(
             scale_and_multiply_on_gpu(nCell, nCell, nnz, d_AT_cscOffsets, d_AT_columns, d_AT_values, d_r, -1.0, &d_rhs);
 
 
+            //DEBUG 
+            //
+                // 1. Allocate Host (CPU) memory
+                std::vector<double> h_lhs_vals(lhs_nnz);
+                std::vector<int> h_lhs_cols(lhs_nnz);
+                std::vector<int> h_lhs_rows(nCell + 1); // CSR row array is ALWAYS size N+1
+                std::vector<int> shape = {nCell, nCell}; // Dimensions of the Jacobian
+
+                // 2. Copy data from Device (GPU) to Host (CPU)
+                CUDA_CHECK(cudaMemcpy(h_lhs_vals.data(), d_lhs_vals, lhs_nnz * sizeof(double), cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(h_lhs_cols.data(), d_lhs_cols, lhs_nnz * sizeof(int), cudaMemcpyDeviceToHost));
+                CUDA_CHECK(cudaMemcpy(h_lhs_rows.data(), d_lhs_rows, (nCell + 1) * sizeof(int), cudaMemcpyDeviceToHost));
+
+                // 3. Save to a single .npz archive using cnpy
+                // First write ("w") creates the file, subsequent writes ("a") append to it.
+                cnpy::npz_save("lhs.npz", "values", h_lhs_vals.data(), {static_cast<size_t>(lhs_nnz)}, "w");
+                cnpy::npz_save("lhs.npz", "col_indices", h_lhs_cols.data(), {static_cast<size_t>(lhs_nnz)}, "a");
+                cnpy::npz_save("lhs.npz", "row_pointers", h_lhs_rows.data(), {static_cast<size_t>(nCell + 1)}, "a");
+                cnpy::npz_save("lhs.npz", "shape", shape.data(), {2}, "a");
+
+                std::cout << "Successfully exported " << nCell << "x" << nCell 
+                        << " lhs with " << lhs_nnz << " non-zeros." << std::endl;
+            //
+
+
             // 9. Solve the linear system for the step delta
             double* d_delta = nullptr;
             solve_system_gpu(nCell, lhs_nnz, d_lhs_rows, d_lhs_cols, d_lhs_vals, d_rhs, &d_delta);
    
             // --- DIAGNOSTIC CHECK FOR SOLVER FAILURE ---
-            if (!is_vector_finite(d_delta, nCell)) {
-                std::cerr << "\nFATAL ERROR: The linear solver failed and produced non-finite values (NaN or Inf) in the delta vector.\n"
-                          << "       This indicates the system matrix `(J^T*J + lambda*I)` is severely ill-conditioned.\n"
-                          << "       Stopping iteration." << std::endl;
+            // if (!is_vector_finite(d_delta, nCell)) {
+            //     std::cerr << "\nFATAL ERROR: The linear solver failed and produced non-finite values (NaN or Inf) in the delta vector.\n"
+            //               << "       This indicates the system matrix `(J^T*J + lambda*I)` is severely ill-conditioned.\n"
+            //               << "       Stopping iteration." << std::endl;
                 
-                // Free the corrupted delta vector before breaking
-                CUDA_CHECK(cudaFree(d_delta));
-                // Set flag to ensure outer loop knows we failed and stops
-                step_accepted = false; 
-                break; // Break from the inner lm_attempt loop
-            }
+            //     // Free the corrupted delta vector before breaking
+            //     print_gpu_array(d_delta, nCell);
+            //     CUDA_CHECK(cudaFree(d_delta));
+            //     // Set flag to ensure outer loop knows we failed and stops
+            //     step_accepted = false; 
+            //     break; // Break from the inner lm_attempt loop
+            // }
             is_system_ill_defined(cublas_handle, d_r, d_rhs, d_delta, nCell);
             // print_gpu_array(d_delta, nCell);
             std::cout << "L2 norm of the step(delta): " << L2_norm_squared(cublas_handle, d_delta, nCell) << 
@@ -3058,13 +3400,13 @@ int main()
 
     // Physicaleters
     double mu = 0.001;
-    double L = 1.0;
+    double L = 1;
     double M = 0.2;
     double N = 0.2;
     double rho = 1.0;
     double u0 = 1.0;
 
-    double Re = (rho * (M / 2.0) * u0) / mu;
+    double Re = (rho * (M / 2.0) * u0) / mu; //M / 2?
 
     std::cout << "Problem Setup:" << std::endl;
     std::cout << "  Grid: " << xN << " x " << yN << " x " << zN << std::endl;
@@ -3089,8 +3431,8 @@ int main()
         for (int k = 0; k < sizeZ; ++k) {
             double yv = M * j / (sizeY - 1);
             double zv = N * k / (sizeZ - 1);
-            u_inlet[idx_3d(j, k, 0, sizeZ, 1)] = 
-                16.0 * u0 * (yv / M) * (1.0 - yv / M) * (zv / N) * (1.0 - zv / N);
+             u_inlet[idx_3d(j, k, 0, sizeZ, 1)] = 
+                 16.0 * u0 * (yv / M) * (1.0 - yv / M) * (zv / N) * (1.0 - zv / N);
                 //  u_inlet[idx_3d(j, k, 0, sizeZ, 1)] = 0;
         }
     }
@@ -3098,13 +3440,21 @@ int main()
     // Initial guess
     std::vector<double> y(nCell, 0.1);
     int blockSize = xN * yN * zN;
-    for (int i = 0; i < blockSize; i++) {
-        y[i] = u0;
-    }
-        
-    
+    // for (int i = 0; i < blockSize; i++) {
+    //     y[i] = u0;
+    //             //y[i] = 0;
 
-    
+    // }
+     
+    //DEBUG 
+    //Ready made solution for testing
+    std::ifstream inFile("solution.txt");
+    for (int i = 0; i < blockSize; i++) {
+      inFile >> y[i];
+      y[i];
+    }
+    inFile.close();
+
     // //------------------------------------------------------
     // //Run the method
     // //------------------------------------------------------
@@ -3112,7 +3462,7 @@ int main()
         double *d_solution=nullptr;
 
         d_solution=levenberg_marquardt_solver(Re, y, xN, yN, zN, u_inlet.data(), dx, dy, dz, 25,
-         0.1, 10, 1e-10);
+         0.001, 10, 1e-16);
     //
 
     //------------------------------------------------------
