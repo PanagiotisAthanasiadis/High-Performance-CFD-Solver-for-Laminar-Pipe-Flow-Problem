@@ -236,3 +236,34 @@ divergence = du_dx + dv_dy + dw_dz
 
 print(f"Max absolute divergence: {np.max(np.abs(divergence)):.8f}")
 print(f"Average divergence: {np.mean(np.abs(divergence)):.8f}")
+
+plt.figure()
+# Plot pressure along the X-axis at the center of Y and Z
+plt.plot(xcoor[:, yN//2, zN//2], p[:, yN//2, zN//2], marker='o')
+plt.title("Centerline Pressure Profile")
+plt.xlabel("X")
+plt.ylabel("Pressure")
+plt.savefig("pressure_profile_check.png")
+
+
+plt.figure()
+# Plot U velocity across the Y-axis (wall-to-wall) near the OUTLET
+plt.plot(ycoor[-5, :, zN//2], u[-5, :, zN//2], marker='x')
+plt.title("Velocity Profile near Outlet (Wall-to-Wall)")
+plt.xlabel("Y (Cross-section)")
+plt.ylabel("U Velocity")
+plt.grid(True)
+plt.savefig("velocity_profile_check.png")
+
+print(f"dx: {dx}, dy: {dy}, dz: {dz}")
+
+# Find the exact 3D index of the maximum divergence
+max_div_idx = np.unravel_index(np.argmax(np.abs(divergence)), divergence.shape)
+
+print(f"--- Hunting the Divergence Spike ---")
+print(f"Max divergence value: {divergence[max_div_idx]:.4f}")
+print(f"Grid Index (i, j, k): {max_div_idx}")
+print(f"Physical Coordinates:")
+print(f"  X = {xcoor[max_div_idx]:.6f}")
+print(f"  Y = {ycoor[max_div_idx]:.6f}")
+print(f"  Z = {zcoor[max_div_idx]:.6f}")

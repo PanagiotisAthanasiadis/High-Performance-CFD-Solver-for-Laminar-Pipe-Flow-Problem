@@ -27,6 +27,7 @@
 
 
 
+
 // ============================================================================ 
 // ERROR CHECKING AND UTILITIES
 // ============================================================================ 
@@ -329,7 +330,79 @@ __global__ void boundary_conditions_apply(
     }
 }
 
+// __global__ void boundary_conditions_apply(
+//     const double* __restrict__ u_inlet,
+//     double* __restrict__ u,
+//     double* __restrict__ v,
+//     double* __restrict__ w,
+//     double* __restrict__ p,
+//     const int xN, const int yN, const int zN,
+//     const int grain)
+// {
+//     const int sizeX = xN + 2;
+//     const int sizeY = yN + 2;
+//     const int sizeZ = zN + 2;
 
+//     int i = blockIdx.x * blockDim.x + threadIdx.x;
+//     int j = blockIdx.y * blockDim.y + threadIdx.y;
+//     int k = blockIdx.z * blockDim.z + threadIdx.z;
+
+//     if (i >= sizeX || j >= sizeY || k >= sizeZ) return;
+
+//     for (int l = 0; l < grain; ++l) {
+//         // Compute the base index for the current node in this batch once
+//         int idx = idx_3d_batch(i, j, k, l, sizeY, sizeZ, grain);
+
+//         // ==========================================
+//         // 1. VELOCITY BOUNDARY CONDITIONS
+//         // ==========================================
+//         // Priority 1: WALLS (No-slip, enclosing the domain completely)
+//         if (j == 0 || j == yN + 1 || k == 0 || k == zN + 1) {
+//             u[idx] = 0.0; 
+//             v[idx] = 0.0; 
+//             w[idx] = 0.0; 
+//         }
+//         // Priority 2: INLET (Interior inlet nodes)
+//         else if (i == 0) {
+//             // Keeping your uncommented u_inlet indexing as requested
+//             u[idx] = u_inlet[idx_3d(j, k, 0, sizeZ, 1)];
+//             v[idx] = 0.0;         
+//             w[idx] = 0.0;  
+//         }
+//         // Priority 3: OUTLET (Zero-gradient on interior outlet nodes)
+//         else if (i == xN + 1) {
+//             u[idx] = u[idx_3d_batch(xN, j, k, l, sizeY, sizeZ, grain)];
+//             v[idx] = v[idx_3d_batch(xN, j, k, l, sizeY, sizeZ, grain)];
+//             w[idx] = w[idx_3d_batch(xN, j, k, l, sizeY, sizeZ, grain)];
+//         }
+
+//         // ==========================================
+//         // 2. PRESSURE BOUNDARY CONDITIONS
+//         // ==========================================
+//         // Pinned Outlet Pressure (Eliminates "Singular Matrix" warning)
+//         if (i == xN + 1) {
+//             p[idx] = 0.0;
+//         }
+//         // Zero-gradient at Inlet
+//         else if (i == 0) {
+//             p[idx] = p[idx_3d_batch(1, j, k, l, sizeY, sizeZ, grain)];
+//         }
+//         // Zero-gradient at Y-Walls
+//         else if (j == 0) {
+//             p[idx] = p[idx_3d_batch(i, 1, k, l, sizeY, sizeZ, grain)];
+//         } 
+//         else if (j == yN + 1) {
+//             p[idx] = p[idx_3d_batch(i, yN, k, l, sizeY, sizeZ, grain)];
+//         }
+//         // Zero-gradient at Z-Walls
+//         else if (k == 0) {
+//             p[idx] = p[idx_3d_batch(i, j, 1, l, sizeY, sizeZ, grain)];
+//         } 
+//         else if (k == zN + 1) {
+//             p[idx] = p[idx_3d_batch(i, j, zN, l, sizeY, sizeZ, grain)];
+//         }
+//     }
+// }
 
 // ============================================================================
 // KERNEL: BOUNDARY CONDITIONS INITIALIZATION (SINGLE)
@@ -423,6 +496,79 @@ __global__ void boundary_conditions_apply_single(
     }
 
 }
+
+// __global__ void boundary_conditions_apply_single(
+//     const double* __restrict__ u_inlet,
+//     double* __restrict__ u,
+//     double* __restrict__ v,
+//     double* __restrict__ w,
+//     double* __restrict__ p,
+//     const int xN, const int yN, const int zN)
+// {
+//     const int sizeX = xN + 2;
+//     const int sizeY = yN + 2;
+//     const int sizeZ = zN + 2;
+
+//     int i = blockIdx.x * blockDim.x + threadIdx.x;
+//     int j = blockIdx.y * blockDim.y + threadIdx.y;
+//     int k = blockIdx.z * blockDim.z + threadIdx.z;
+
+//     if (i >= sizeX || j >= sizeY || k >= sizeZ) return;
+
+//     int idx = idx_3d(i, j, k, sizeY, sizeZ);
+
+//     // ==========================================
+//     // 1. VELOCITY BOUNDARY CONDITIONS
+//     // ==========================================
+//     // Apply WALLS first (Priority 1: Enclose the domain)
+//     if (j == 0 || j == yN + 1 || k == 0 || k == zN + 1) {
+//         u[idx] = 0.0;    
+//         v[idx] = 0.0;    
+//         w[idx] = 0.0;    
+//     } 
+//     // Apply INLET (Priority 2: Only on interior nodes not touching walls)
+//     else if (i == 0) {
+//         u[idx] = u_inlet[idx_3d(j, k, 0, sizeZ, 1)];
+//         v[idx] = 0.0;         
+//         w[idx] = 0.0;  
+//     } 
+//     // Apply OUTLET (Priority 3: Only on interior nodes not touching walls)
+//     else if (i == xN + 1) {
+//         u[idx] = u[idx_3d(xN, j, k, sizeY, sizeZ)];
+//         v[idx] = v[idx_3d(xN, j, k, sizeY, sizeZ)];
+//         w[idx] = w[idx_3d(xN, j, k, sizeY, sizeZ)];
+//     }
+
+//     // ==========================================
+//     // 2. PRESSURE BOUNDARY CONDITIONS
+//     // ==========================================
+//     // Note: 'else if' structure prevents corner overwrites here as well.
+    
+//     // Pinned Outlet Pressure (Fixes the Singular Matrix warning)
+//     if (i == xN + 1) {
+//         p[idx] = 0.0; 
+//     } 
+//     // Zero-gradient at Inlet
+//     else if (i == 0) {
+//         p[idx] = p[idx_3d(1, j, k, sizeY, sizeZ)];
+//     } 
+//     // Zero-gradient at Y-Walls
+//     else if (j == 0) {
+//         p[idx] = p[idx_3d(i, 1, k, sizeY, sizeZ)];
+//     } 
+//     else if (j == yN + 1) {
+//         p[idx] = p[idx_3d(i, yN, k, sizeY, sizeZ)];
+//     } 
+//     // Zero-gradient at Z-Walls
+//     else if (k == 0) {
+//         p[idx] = p[idx_3d(i, j, 1, sizeY, sizeZ)];
+//     } 
+//     else if (k == zN + 1) {
+//         p[idx] = p[idx_3d(i, j, zN, sizeY, sizeZ)];
+//     }
+// }
+
+
 
 // ============================================================================
 // KERNEL: UV VELOCITY (SINGLE)
@@ -841,9 +987,9 @@ void uv_velocity_single(double *out, const double Re, double *y,
     CUDA_CHECK(cudaMalloc(&ysol, align_size(nCell * sizeof(double))));
 
     CUDA_CHECK(cudaMemset(ud, 0, totalSize * sizeof(double)));
-CUDA_CHECK(cudaMemset(vd, 0, totalSize * sizeof(double)));
-CUDA_CHECK(cudaMemset(wd, 0, totalSize * sizeof(double)));
-CUDA_CHECK(cudaMemset(pd, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(vd, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(wd, 0, totalSize * sizeof(double)));
+    CUDA_CHECK(cudaMemset(pd, 0, totalSize * sizeof(double)));
 
     int inletSize = sizeY * sizeZ;
     CUDA_CHECK(cudaMalloc(&d_u_inlet, align_size(inletSize * sizeof(double))));
@@ -1225,6 +1371,9 @@ Residuals_Sparse_Jacobian_finite_diff(
             }
         }
     
+        
+
+
         CUDA_CHECK(cudaStreamSynchronize(stream));
         CUDA_CHECK(cudaGetLastError()); //Check once after synchronize
         CUDA_CHECK(cudaFree(dev_out));
@@ -1246,6 +1395,38 @@ Residuals_Sparse_Jacobian_finite_diff(
     CUDA_CHECK(cudaFree(d_ysol));
     CUDA_CHECK(cudaFree(d_u_inlet));
     CUDA_CHECK(cudaFree(d_global_counter));
+
+    // --- DIAGONAL SANITY CHECK ---
+    int *h_rows = new int[nnz];
+    int *h_cols = new int[nnz];
+    double *h_vals = new double[nnz];
+    
+    CUDA_CHECK(cudaMemcpy(h_rows, d_all_rows, nnz * sizeof(int), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cols, d_all_cols, nnz * sizeof(int), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_vals, d_all_vals, nnz * sizeof(double), cudaMemcpyDeviceToHost));
+
+    int missing_or_zero_diagonals = 0;
+    std::vector<bool> has_diag(nCell, false);
+
+    for (int i = 0; i < nnz; ++i) {
+        // If row == col, it's on the main diagonal. 
+        // We check if it's larger than machine epsilon to count as "non-zero"
+        if (h_rows[i] == h_cols[i] && std::abs(h_vals[i]) > 1e-10) {
+            has_diag[h_rows[i]] = true;
+        }
+    }
+
+    for (int i = 0; i < nCell; ++i) {
+        if (!has_diag[i]) {
+            missing_or_zero_diagonals++;
+        }
+    }
+
+    std::cout << "CRITICAL DIAGONAL CHECK: " << missing_or_zero_diagonals 
+              << " out of " << nCell << " diagonal entries are zero or missing!" << std::endl;
+
+    delete[] h_rows; delete[] h_cols; delete[] h_vals;
+    // -----------------------------
 
     return {d_fold, std::make_tuple(d_all_rows, d_all_cols, d_all_vals, nnz)};
 }
@@ -2146,20 +2327,6 @@ void solve_system_gpu(
     const double* d_b,           
     double** d_x_out             
 ) {
-    // check_indices_sanity(nnz, n, d_row_offsets);
-    // check_indices_sanity(nnz, n, d_col_indices); 
-
-        // std::cout << "\n=== Inside solve_system_gpu ===" << std::endl;
-        // std::cout << "n=" << n << ", nnz=" << nnz << std::endl;
-        
-        // check_indices_sanity(nnz, n, d_col_indices);  // Check columns
-        
-        // // Also check row offsets are valid
-        // int* h_row_check = new int[2];
-        // CUDA_CHECK(cudaMemcpy(h_row_check, d_row_offsets, sizeof(int), cudaMemcpyDeviceToHost));
-        // CUDA_CHECK(cudaMemcpy(h_row_check + 1, d_row_offsets + n, sizeof(int), cudaMemcpyDeviceToHost));
-        // std::cout << "Row offsets: first=" << h_row_check[0] << ", last=" << h_row_check[1] << std::endl;
-        // delete[] h_row_check;
 
     // 1. Allocate Result Vector X on GPU
     CUDA_CHECK( cudaMalloc((void**)d_x_out, n * sizeof(double)) );
@@ -2881,7 +3048,7 @@ double* levenberg_marquardt_solver(
 int main()
 {
     // Problem size
-    int xN = 10, yN = 5, zN = 5;
+    int xN = 5, yN = 5, zN = 5;
     // int xN = 100, yN = 2, zN = 2;
     const int nCell = 4 * xN * yN * zN;
 
@@ -2905,9 +3072,9 @@ int main()
     std::cout << "  Reynolds number: " << Re << std::endl;
 
     // Generate coordinates
-    std::vector<double> xcoor(sizeX * sizeY * sizeZ);
-    std::vector<double> ycoor(sizeX * sizeY * sizeZ);
-    std::vector<double> zcoor(sizeX * sizeY * sizeZ);
+    std::vector<double> xcoor(sizeX * sizeY * sizeZ,0);
+    std::vector<double> ycoor(sizeX * sizeY * sizeZ,0);
+    std::vector<double> zcoor(sizeX * sizeY * sizeZ,0);
 
     //Will be use for plotting
     auto [dx, dy, dz] = coordinates(xcoor, ycoor, zcoor, xN, yN, zN, L, M, N);
@@ -2985,21 +3152,8 @@ int main()
         //
 
     // Cleanup
-                        
-        // CUDA_CHECK(cudaFree(d_lhs_rows));
-        // CUDA_CHECK(cudaFree(d_lhs_cols));
-        // CUDA_CHECK(cudaFree(d_lhs_vals));
-        // CUDA_CHECK(cudaFree(rhs));
-
-
-
-        // CUDA_CHECK(cudaFree(d_rows_coo));
-        // CUDA_CHECK(cudaFree(d_cols_coo));
-        // CUDA_CHECK(cudaFree(d_vals_coo));
-        
+                            
         CUDA_CHECK( cudaFree(d_solution));
-
-        // CUBLAS_CHECK(cublasDestroy(cublas_handle));
 
         CUDA_CHECK( cudaFree(d_uvel));
         CUDA_CHECK( cudaFree(d_vvel));
