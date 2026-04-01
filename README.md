@@ -15,7 +15,7 @@ The solver operates entirely on the GPU using NVIDIA's CUDA toolkit and leverage
 | **cuDSS** | Direct sparse linear solver (LU-based analysis, factorization, solve) |
 | **CUB** | Device-wide radix sort, segmented reduce, prefix scan, and flagged select |
 | **cnpy** | NumPy `.npz` export for post-processing and visualization in Python |
-| **OpenMP** | Multi-stream Jacobian construction (currently single-threaded) |
+| **OpenMP** | Multi-stream Jacobian construction  |
 
 ---
 
@@ -340,4 +340,3 @@ Sets up and runs the complete simulation pipeline:
 - This is a **prototype** file: all functionality resides in a single `.cu` file for rapid iteration. The production version is split across `src/` and `include/` directories.
 - Several commented-out code blocks represent earlier versions of boundary condition kernels and Jacobian routines, preserved for reference.
 - The `grain` parameter is currently set to `1`, meaning perturbations are processed one at a time. Increasing `grain` enables batched Jacobian columns but requires proportionally more GPU memory.
-- The `n_threads` for OpenMP is clamped to `min(1, omp_get_max_threads())`, effectively disabling multi-threaded stream concurrency in the current version.
