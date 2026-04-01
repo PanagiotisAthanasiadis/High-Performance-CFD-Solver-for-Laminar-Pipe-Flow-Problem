@@ -1,6 +1,7 @@
 <img width="639" height="479" alt="pipe" src="https://github.com/user-attachments/assets/933945b6-88b7-4304-8c92-d8e5f875ad25" />
-## Documentation: `prototypes/full_version.cu`
 
+
+## Documentation: prototypes/full_version.cu
 ## Overview
 
 `full_version.cu` is a self-contained CUDA prototype that solves the **3D steady-state incompressible Navier-Stokes equations** for laminar pipe flow using the **Levenberg-Marquardt (LM) optimization method**. Instead of time-stepping, the code treats the discretized governing equations as a nonlinear system of residuals and drives them to zero via a damped Gauss-Newton iteration.
